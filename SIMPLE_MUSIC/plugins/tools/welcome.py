@@ -107,7 +107,7 @@ async def greet_new_member(_, member: ChatMemberUpdated):
             # 📝 Aapka bataya hua custom text format + Group name configuration:
             caption_text = f"""
 **⎊─────☵ ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ☵─────⎊**
-📋 **ɢʀᴏᴜᴘ ⧽** {group_name}
+⧽** {group_name}
 **▬▭▬▭▬▭▬▭▬▭▬▭▬▭▬**
 ☉ **ɴᴀᴍᴇ ⧽** {user.mention}
 ☉ **ɪᴅ ⧽** `{user.id}`
