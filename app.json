@@ -48,7 +48,7 @@
       "required": false
     },
     "SHRUTI_API_KEY": {
-      "description": "Your YouTube Data API Key.",
+      "description": "Your YouTube Data API Key.Get Api Key bot @SHRUTIAPIBOT",
       "value": "",
       "required": false
     },
