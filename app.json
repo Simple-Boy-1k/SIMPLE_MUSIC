@@ -34,7 +34,7 @@
     },
     "OWNER_ID": {
       "description": "The user id of user whom you would like to add as OWNER.",
-      "value": "8765262788",
+      "value": "8237346239",
       "required": true
     },
     "STRING_SESSION": {
@@ -47,7 +47,7 @@
       "value": "https://github.com/Simple-Boy-1k/SIMPLE_MUSIC.git",
       "required": false
     },
-    "YT_API_KEY": {
+    "SHRUTI_API_KEY": {
       "description": "Your YouTube Data API Key.",
       "value": "",
       "required": false
@@ -69,7 +69,7 @@
     },
     "SUPPORT_CHAT": {
       "description": "Your support group link.",
-      "value": "https://t.me/+HwsbN4MEDwpkYjcx",
+      "value": "https://t.me/+Wld-6UaKvkw4NzQ9",
       "required": false
     },
     "SUPPORT_CHANNEL": {
