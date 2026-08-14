@@ -179,5 +179,5 @@ Bot also Supported with Channels. Just add bot and assistant to the Channel as A
 ## ❤️ Credits :
 
 - [Simple Boy](https://github.com/Simple-Boy-1k)
-- [Telegram](https://t.me/Simple_Boy_1k)
+- [Devlepor](https://t.me/Itz_Ego_1k)
 - Everyone In This Journey !
