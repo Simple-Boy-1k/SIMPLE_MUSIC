@@ -1,8 +1,9 @@
 # -----------------------------------------------
-# 🔸 SIMPLE MUSIC Project
+# 🔸 SIMPLE MUSIC Project - ULTRA FAST EDITION
 # 🔹 Developed & Maintained by: Simple Boy (https://github.com/Simple-Boy-1k)
 # 📅 Copyright © 2026 – All Rights Reserved
 # -----------------------------------------------
+import asyncio
 import os
 from random import randint
 from typing import Union
@@ -17,6 +18,29 @@ from SIMPLE_MUSIC.utils.inline import aq_markup, close_markup, stream_markup
 from SIMPLE_MUSIC.utils.pastebin import SIMPLEBin
 from SIMPLE_MUSIC.utils.stream.queue import put_queue, put_queue_index
 from SIMPLE_MUSIC.utils.thumbnails import get_thumb
+
+
+async def _send_stream_card(original_chat_id, vidid, title, duration_min, user_name, chat_id, _):
+    """Background task to generate thumbnail and send photo without delaying VC join"""
+    try:
+        img = await get_thumb(vidid)
+        button = stream_markup(_, chat_id)
+        run = await app.send_photo(
+            original_chat_id,
+            photo=img,
+            caption=_["stream_1"].format(
+                f"https://t.me/{app.username}?start=info_{vidid}",
+                title[:23],
+                duration_min,
+                user_name,
+            ),
+            reply_markup=InlineKeyboardMarkup(button),
+        )
+        if db.get(chat_id):
+            db[chat_id][0]["mystic"] = run
+            db[chat_id][0]["markup"] = "stream"
+    except Exception:
+        pass
 
 
 async def stream(
@@ -105,21 +129,7 @@ async def stream(
                     "video" if video else "audio",
                     forceplay=forceplay,
                 )
-                img = await get_thumb(vidid)
-                button = stream_markup(_, chat_id)
-                run = await app.send_photo(
-                    original_chat_id,
-                    photo=img,
-                    caption=_["stream_1"].format(
-                        f"https://t.me/{app.username}?start=info_{vidid}",
-                        title[:23],
-                        duration_min,
-                        user_name,
-                    ),
-                    reply_markup=InlineKeyboardMarkup(button),
-                )
-                db[chat_id][0]["mystic"] = run
-                db[chat_id][0]["markup"] = "stream"
+                asyncio.create_task(_send_stream_card(original_chat_id, vidid, title, duration_min, user_name, chat_id, _))
         if count == 0:
             return
         else:
@@ -145,6 +155,7 @@ async def stream(
         thumbnail = result["thumb"]
         status = True if video else None
         
+        # Instant Stream URL Generation
         try:
             file_path = await YouTube.stream_link(vidid, video=status, videoid=True)
             direct = True
@@ -178,6 +189,8 @@ async def stream(
         else:
             if not forceplay:
                 db[chat_id] = []
+            
+            # ⚡ Step 1: Join Voice Chat IMMEDIATELY
             await SIMPLE.join_call(
                 chat_id,
                 original_chat_id,
@@ -197,21 +210,10 @@ async def stream(
                 "video" if video else "audio",
                 forceplay=forceplay,
             )
-            img = await get_thumb(vidid)
-            button = stream_markup(_, chat_id)
-            run = await app.send_photo(
-                original_chat_id,
-                photo=img,
-                caption=_["stream_1"].format(
-                    f"https://t.me/{app.username}?start=info_{vidid}",
-                    title[:23],
-                    duration_min,
-                    user_name,
-                ),
-                reply_markup=InlineKeyboardMarkup(button),
-            )
-            db[chat_id][0]["mystic"] = run
-            db[chat_id][0]["markup"] = "stream"
+            
+            # ⚡ Step 2: Send Photo/Thumbnail in Background Task (Zero Delay for Audio)
+            asyncio.create_task(_send_stream_card(original_chat_id, vidid, title, duration_min, user_name, chat_id, _))
+
     elif streamtype == "soundcloud":
         file_path = result["filepath"]
         title = result["title"]
@@ -365,21 +367,7 @@ async def stream(
                 "video" if video else "audio",
                 forceplay=forceplay,
             )
-            img = await get_thumb(vidid)
-            button = stream_markup(_, chat_id)
-            run = await app.send_photo(
-                original_chat_id,
-                photo=img,
-                caption=_["stream_1"].format(
-                    f"https://t.me/{app.username}?start=info_{vidid}",
-                    title[:23],
-                    duration_min,
-                    user_name,
-                ),
-                reply_markup=InlineKeyboardMarkup(button),
-            )
-            db[chat_id][0]["mystic"] = run
-            db[chat_id][0]["markup"] = "tg"
+            asyncio.create_task(_send_stream_card(original_chat_id, vidid, title, duration_min, user_name, chat_id, _))
     elif streamtype == "index":
         link = result
         title = "ɪɴᴅᴇx ᴏʀ ᴍ3ᴜ8 ʟɪɴᴋ"
