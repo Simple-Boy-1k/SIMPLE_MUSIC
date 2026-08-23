@@ -1,5 +1,5 @@
 # -----------------------------------------------
-# 🔸 SIMPLE MUSIC Project - ULTRA FAST EDITION
+# 🔸 SIMPLE MUSIC Project - ULTRA FAST + PERMANENT PHOTO EDITION
 # 🔹 Developed & Maintained by: Simple Boy (https://github.com/Simple-Boy-1k)
 # 📅 Copyright © 2026 – All Rights Reserved
 # -----------------------------------------------
@@ -17,13 +17,13 @@ from SIMPLE_MUSIC.utils.exceptions import AssistantErr
 from SIMPLE_MUSIC.utils.inline import aq_markup, close_markup, stream_markup
 from SIMPLE_MUSIC.utils.pastebin import SIMPLEBin
 from SIMPLE_MUSIC.utils.stream.queue import put_queue, put_queue_index
-from SIMPLE_MUSIC.utils.thumbnails import get_thumb
 
 
 async def _send_stream_card(original_chat_id, vidid, title, duration_min, user_name, chat_id, _):
-    """Background task to generate thumbnail and send photo without delaying VC join"""
+    """Background task to send fixed permanent photo instantly"""
     try:
-        img = await get_thumb(vidid)
+        # Permanent photo URL directly from config
+        img = getattr(config, "STREAM_IMG_URL", "https://telegra.ph/file/1020610c3093510e19a9f.jpg")
         button = stream_markup(_, chat_id)
         run = await app.send_photo(
             original_chat_id,
@@ -155,7 +155,6 @@ async def stream(
         thumbnail = result["thumb"]
         status = True if video else None
         
-        # Instant Stream URL Generation
         try:
             file_path = await YouTube.stream_link(vidid, video=status, videoid=True)
             direct = True
@@ -190,7 +189,6 @@ async def stream(
             if not forceplay:
                 db[chat_id] = []
             
-            # ⚡ Step 1: Join Voice Chat IMMEDIATELY
             await SIMPLE.join_call(
                 chat_id,
                 original_chat_id,
@@ -211,7 +209,6 @@ async def stream(
                 forceplay=forceplay,
             )
             
-            # ⚡ Step 2: Send Photo/Thumbnail in Background Task (Zero Delay for Audio)
             asyncio.create_task(_send_stream_card(original_chat_id, vidid, title, duration_min, user_name, chat_id, _))
 
     elif streamtype == "soundcloud":
