@@ -9,15 +9,29 @@ from py_yt import VideosSearch, Playlist
 import aiohttp
 
 API_URL = os.environ.get("SHRUTI_API_URL", "https://api.shrutibots.site")
-
-API_KEY = os.environ.get("SHRUTI_API_KEY", "YOUR_API_KEY") ## Get This API KEY FROM TELEGRAM BOT USERNAME: @SHRUTIAPIBOT 
+API_KEY = os.environ.get("SHRUTI_API_KEY", "YOUR_API_KEY")
 
 DOWNLOAD_DIR = "downloads"
+
+_session: aiohttp.ClientSession = None
+
+async def get_session() -> aiohttp.ClientSession:
+    global _session
+    if _session is None or _session.closed:
+        _session = aiohttp.ClientSession()
+    return _session
 
 
 def time_to_seconds(time):
     stringt = str(time)
     return sum(int(x) * 60 ** i for i, x in enumerate(reversed(stringt.split(":"))))
+
+
+async def get_stream_url(link: str, media_type: str = "audio") -> str:
+    video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
+    if not video_id or len(video_id) < 3:
+        return None
+    return f"{API_URL}/download?url={video_id}&type={media_type}&api_key={API_KEY}"
 
 
 async def download_song(link: str) -> str:
@@ -31,17 +45,17 @@ async def download_song(link: str) -> str:
         return file_path
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params={"url": video_id, "type": "audio", "api_key": API_KEY},
-                timeout=aiohttp.ClientTimeout(total=300)
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
+        session = await get_session()
+        async with session.get(
+            f"{API_URL}/download",
+            params={"url": video_id, "type": "audio", "api_key": API_KEY},
+            timeout=aiohttp.ClientTimeout(total=120)
+        ) as resp:
+            if resp.status != 200:
+                return None
+            with open(file_path, "wb") as f:
+                async for chunk in resp.content.iter_chunked(262144):
+                    f.write(chunk)
         if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
             return file_path
         return None
@@ -65,17 +79,17 @@ async def download_video(link: str) -> str:
         return file_path
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params={"url": video_id, "type": "video", "api_key": API_KEY},
-                timeout=aiohttp.ClientTimeout(total=600)
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
+        session = await get_session()
+        async with session.get(
+            f"{API_URL}/download",
+            params={"url": video_id, "type": "video", "api_key": API_KEY},
+            timeout=aiohttp.ClientTimeout(total=300)
+        ) as resp:
+            if resp.status != 200:
+                return None
+            with open(file_path, "wb") as f:
+                async for chunk in resp.content.iter_chunked(262144):
+                    f.write(chunk)
         if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
             return file_path
         return None
@@ -123,12 +137,15 @@ class YouTubeAPI:
         if "&" in link:
             link = link.split("&")[0]
         results = VideosSearch(link, limit=1)
-        for result in (await results.next())["result"]:
-            title = result["title"]
-            duration_min = result["duration"]
-            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-            vidid = result["id"]
-            duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
+        res = await results.next()
+        if not res or not res.get("result"):
+            return None, "0:00", 0, "", ""
+        result = res["result"][0]
+        title = result["title"]
+        duration_min = result["duration"]
+        thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+        vidid = result["id"]
+        duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
         return title, duration_min, duration_sec, thumbnail, vidid
 
     async def title(self, link: str, videoid: Union[bool, str] = None):
@@ -251,6 +268,12 @@ class YouTubeAPI:
         vidid = result[query_type]["id"]
         thumbnail = result[query_type]["thumbnails"][0]["url"].split("?")[0]
         return title, duration_min, thumbnail, vidid
+
+    async def stream_link(self, link: str, video: bool = False, videoid: Union[bool, str] = None):
+        if videoid:
+            link = self.base + link
+        media_type = "video" if video else "audio"
+        return await get_stream_url(link, media_type)
 
     async def download(
         self,
