@@ -77,11 +77,6 @@
       "value": "https://t.me/music_Bot_Adda",
       "required": false
     },
-    "STREAM_IMG_URL": {
-      "description": "Permanent Image URL for Stream Card.",
-      "value": "https://files.catbox.moe/z1h6ow.jpg",
-      "required": false
-    },
     "START_IMG_URL": {
       "description": "Image URL for Start command.",
       "value": "https://files.catbox.moe/z1h6ow.jpg",
@@ -116,3 +111,5 @@
   ],
   "stack": "container"
 }
+
+Isme kro
