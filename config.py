@@ -53,7 +53,8 @@ API_KEY = getenv("API_KEY", "") # youtube song api key, generate free key or buy
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ❖ ʟ ɪ ᴍ ɪ ᴛ s   ᴀ ɴ ᴅ   ɪ ᴅ s ❖
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DURATION_LIMIT_MIN = int(getenv("DURATION_LIMIT", 17000))
+# ⚡ DURATION LIMIT MAXED OUT FOR UNLIMITED PLAYBACK
+DURATION_LIMIT_MIN = int(getenv("DURATION_LIMIT", 999999))
 LOGGER_ID = int(getenv("LOGGER_ID", -1003455128274))
 OWNER_ID = int(getenv("OWNER_ID", 8730025963))
 
@@ -105,7 +106,7 @@ SPOTIFY_CLIENT_SECRET = getenv("SPOTIFY_CLIENT_SECRET", "709e1a2969664491b582008
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ❖ ᴘ ʟ ᴀ ʏ ʟ ɪ s ᴛ   s ᴇ ᴛ ᴛ ɪ ɴ ɢ s ❖
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PLAYLIST_FETCH_LIMIT = int(getenv("PLAYLIST_FETCH_LIMIT", 25))
+PLAYLIST_FETCH_LIMIT = int(getenv("PLAYLIST_FETCH_LIMIT", 500))
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
