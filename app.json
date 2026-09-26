@@ -47,7 +47,7 @@
       "value": "https://github.com/Simple-Boy-1k/SIMPLE_MUSIC.git",
       "required": false
     },
-    "SHRUTI_API_KEY": {
+    "YT_API_KEY": {
       "description": "Your YouTube Data API Key.Get Api Key bot @SHRUTIAPIBOT",
       "value": "",
       "required": false
