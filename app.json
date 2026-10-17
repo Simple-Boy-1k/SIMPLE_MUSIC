@@ -69,12 +69,12 @@
     },
     "SUPPORT_CHAT": {
       "description": "Your support group link.",
-      "value": "https://t.me/+Wld-6UaKvkw4NzQ9",
+      "value": "https://t.me/+7jFEQBjWNUwzNjMx",
       "required": false
     },
     "SUPPORT_CHANNEL": {
       "description": "Your support channel link.",
-      "value": "https://t.me/music_Bot_Adda",
+      "value": "https://t.me/musicsupport2",
       "required": false
     },
     "START_IMG_URL": {
