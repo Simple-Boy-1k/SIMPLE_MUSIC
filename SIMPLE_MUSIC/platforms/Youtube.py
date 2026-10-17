@@ -262,7 +262,7 @@ class YouTubeAPI:
                                 "format": format["format"],
                                 "filesize": format.get("filesize"),
                                 "format_id": format["format_id"],
-                                `ext`: format["ext"],
+                                "ext": format["ext"],  # <-- Yahan backticks the, ab theek kar diye hain
                                 "format_note": format["format_note"],
                                 "yturl": link,
                             }
@@ -301,7 +301,6 @@ class YouTubeAPI:
             if video:
                 downloaded_file = await download_video(link)
             else:
-                # Agar voice chat fast play chahiye, toh aap download ke bajaye stream() method ka use kar sakte hain.
                 downloaded_file = await download_song(link)
             if downloaded_file:
                 return downloaded_file, True
