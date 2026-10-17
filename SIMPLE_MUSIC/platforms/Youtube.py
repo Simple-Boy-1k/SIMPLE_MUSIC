@@ -6,6 +6,7 @@ import yt_dlp
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
 from py_yt import VideosSearch, Playlist
+import aiohttp
 
 API_URL = os.environ.get("SHRUTI_API_URL", "https://api01.shrutibots.site")
 API_KEY = os.environ.get("SHRUTI_API_KEY", "YOUR_API_KEY") 
@@ -19,32 +20,38 @@ def time_to_seconds(time):
 
 
 async def download_song(link: str) -> str:
-    """Fast yt-dlp direct audio stream url extraction for instant voice chat playback"""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
 
-    yt_link = link if "http" in link else f"https://www.youtube.com/watch?v={video_id}"
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp3")
     
+    # Fast cache check: Agar file pehle se saved hai toh bina time waste kiye turant play hogi!
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+        return file_path
+
     try:
-        loop = asyncio.get_event_loop()
-        def extract():
-            ydl_opts = {
-                "format": "bestaudio/best",
-                "noplaylist": True,
-                "quiet": True,
-                "no_warnings": True,
-                "socket_timeout": 30,
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(yt_link, download=False)
-                return info.get("url")
-        
-        stream_url = await loop.run_in_executor(None, extract)
-        if stream_url:
-            return stream_url
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"{API_URL}/download",
+                params={"url": video_id, "type": "audio", "api_key": API_KEY},
+                timeout=aiohttp.ClientTimeout(total=300)
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                with open(file_path, "wb") as f:
+                    async for chunk in resp.content.iter_chunked(131072):
+                        f.write(chunk)
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+            return file_path
         return None
     except Exception:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
         return None
 
 
@@ -53,22 +60,32 @@ async def download_video(link: str) -> str:
     if not video_id or len(video_id) < 3:
         return None
 
-    yt_link = link if "http" in link else f"https://www.youtube.com/watch?v={video_id}"
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp4")
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+        return file_path
+
     try:
-        loop = asyncio.get_event_loop()
-        def extract():
-            ydl_opts = {
-                "format": "best/best",
-                "noplaylist": True,
-                "quiet": True,
-                "no_warnings": True,
-                "socket_timeout": 30,
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(yt_link, download=False)
-                return info.get("url")
-        return await loop.run_in_executor(None, extract)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"{API_URL}/download",
+                params={"url": video_id, "type": "video", "api_key": API_KEY},
+                timeout=aiohttp.ClientTimeout(total=600)
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                with open(file_path, "wb") as f:
+                    async for chunk in resp.content.iter_chunked(131072):
+                        f.write(chunk)
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+            return file_path
+        return None
     except Exception:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
         return None
 
 
