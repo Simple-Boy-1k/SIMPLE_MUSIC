@@ -9,15 +9,36 @@ from py_yt import VideosSearch, Playlist
 import aiohttp
 
 API_URL = os.environ.get("SHRUTI_API_URL", "https://api01.shrutibots.site")
-
-API_KEY = os.environ.get("SHRUTI_API_KEY", "YOUR_API_KEY") ## Get This API KEY FROM TELEGRAM BOT USERNAME: @SHRUTIAPIBOT 
+API_KEY = os.environ.get("SHRUTI_API_KEY", "YOUR_API_KEY")  # Get from @SHRUTIAPIBOT
 
 DOWNLOAD_DIR = "downloads"
+
+# yt-dlp options for instant streaming URL extraction
+ytdl_stream_opts = {
+    "format": "bestaudio/best",
+    "noplaylist": True,
+    "quiet": True,
+    "no_warnings": True,
+    "socket_timeout": 30,
+}
 
 
 def time_to_seconds(time):
     stringt = str(time)
     return sum(int(x) * 60 ** i for i, x in enumerate(reversed(stringt.split(":"))))
+
+
+async def get_direct_stream_url(link: str) -> str:
+    """Extracts direct streamable audio URL instantly without downloading the file."""
+    loop = asyncio.get_event_loop()
+    def extract():
+        try:
+            with yt_dlp.YoutubeDL(ytdl_stream_opts) as ydl:
+                info = ydl.extract_info(link, download=False)
+                return info.get("url") or (info.get("formats")[0]["url"] if info.get("formats") else None)
+        except Exception:
+            return None
+    return await loop.run_in_executor(None, extract)
 
 
 async def download_song(link: str) -> str:
@@ -212,6 +233,17 @@ class YouTubeAPI:
         }
         return track_details, vidid
 
+    async def stream(self, link: str, videoid: Union[bool, str] = None):
+        """Fast streaming helper method for voice chat playback without waiting for file download."""
+        if videoid:
+            link = self.base + link
+        if "&" in link:
+            link = link.split("&")[0]
+        stream_url = await get_direct_stream_url(link)
+        if stream_url:
+            return stream_url, True
+        return None, False
+
     async def formats(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
@@ -230,7 +262,7 @@ class YouTubeAPI:
                                 "format": format["format"],
                                 "filesize": format.get("filesize"),
                                 "format_id": format["format_id"],
-                                "ext": format["ext"],
+                                `ext`: format["ext"],
                                 "format_note": format["format_note"],
                                 "yturl": link,
                             }
@@ -269,6 +301,7 @@ class YouTubeAPI:
             if video:
                 downloaded_file = await download_video(link)
             else:
+                # Agar voice chat fast play chahiye, toh aap download ke bajaye stream() method ka use kar sakte hain.
                 downloaded_file = await download_song(link)
             if downloaded_file:
                 return downloaded_file, True
