@@ -6,21 +6,11 @@ import yt_dlp
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
 from py_yt import VideosSearch, Playlist
-import aiohttp
 
 API_URL = os.environ.get("SHRUTI_API_URL", "https://api01.shrutibots.site")
-API_KEY = os.environ.get("SHRUTI_API_KEY", "YOUR_API_KEY")  # Get from @SHRUTIAPIBOT
+API_KEY = os.environ.get("SHRUTI_API_KEY", "YOUR_API_KEY") 
 
 DOWNLOAD_DIR = "downloads"
-
-# yt-dlp options for instant streaming URL extraction
-ytdl_stream_opts = {
-    "format": "bestaudio/best",
-    "noplaylist": True,
-    "quiet": True,
-    "no_warnings": True,
-    "socket_timeout": 30,
-}
 
 
 def time_to_seconds(time):
@@ -28,50 +18,33 @@ def time_to_seconds(time):
     return sum(int(x) * 60 ** i for i, x in enumerate(reversed(stringt.split(":"))))
 
 
-async def get_direct_stream_url(link: str) -> str:
-    """Extracts direct streamable audio URL instantly without downloading the file."""
-    loop = asyncio.get_event_loop()
-    def extract():
-        try:
-            with yt_dlp.YoutubeDL(ytdl_stream_opts) as ydl:
-                info = ydl.extract_info(link, download=False)
-                return info.get("url") or (info.get("formats")[0]["url"] if info.get("formats") else None)
-        except Exception:
-            return None
-    return await loop.run_in_executor(None, extract)
-
-
 async def download_song(link: str) -> str:
+    """Fast yt-dlp direct audio stream url extraction for instant voice chat playback"""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
 
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-    file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp3")
-    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-        return file_path
-
+    yt_link = link if "http" in link else f"https://www.youtube.com/watch?v={video_id}"
+    
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params={"url": video_id, "type": "audio", "api_key": API_KEY},
-                timeout=aiohttp.ClientTimeout(total=300)
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-            return file_path
+        loop = asyncio.get_event_loop()
+        def extract():
+            ydl_opts = {
+                "format": "bestaudio/best",
+                "noplaylist": True,
+                "quiet": True,
+                "no_warnings": True,
+                "socket_timeout": 30,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(yt_link, download=False)
+                return info.get("url")
+        
+        stream_url = await loop.run_in_executor(None, extract)
+        if stream_url:
+            return stream_url
         return None
     except Exception:
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
         return None
 
 
@@ -80,32 +53,22 @@ async def download_video(link: str) -> str:
     if not video_id or len(video_id) < 3:
         return None
 
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-    file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp4")
-    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-        return file_path
-
+    yt_link = link if "http" in link else f"https://www.youtube.com/watch?v={video_id}"
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params={"url": video_id, "type": "video", "api_key": API_KEY},
-                timeout=aiohttp.ClientTimeout(total=600)
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-            return file_path
-        return None
+        loop = asyncio.get_event_loop()
+        def extract():
+            ydl_opts = {
+                "format": "best/best",
+                "noplaylist": True,
+                "quiet": True,
+                "no_warnings": True,
+                "socket_timeout": 30,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(yt_link, download=False)
+                return info.get("url")
+        return await loop.run_in_executor(None, extract)
     except Exception:
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
         return None
 
 
@@ -233,17 +196,6 @@ class YouTubeAPI:
         }
         return track_details, vidid
 
-    async def stream(self, link: str, videoid: Union[bool, str] = None):
-        """Fast streaming helper method for voice chat playback without waiting for file download."""
-        if videoid:
-            link = self.base + link
-        if "&" in link:
-            link = link.split("&")[0]
-        stream_url = await get_direct_stream_url(link)
-        if stream_url:
-            return stream_url, True
-        return None, False
-
     async def formats(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
@@ -262,7 +214,7 @@ class YouTubeAPI:
                                 "format": format["format"],
                                 "filesize": format.get("filesize"),
                                 "format_id": format["format_id"],
-                                "ext": format["ext"],  # <-- Yahan backticks the, ab theek kar diye hain
+                                "ext": format["ext"],
                                 "format_note": format["format_note"],
                                 "yturl": link,
                             }
