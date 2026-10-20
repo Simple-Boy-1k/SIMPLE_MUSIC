@@ -176,6 +176,7 @@ async def greet_new_member(_, member: ChatMemberUpdated):
 
         # Welcome caption — screenshot-inspired small font
         caption_text = f"""
+        <blockquote>
 「 ᴡ ᴇ ʟ ᴄ ᴏ ᴍ ᴇ  ʙ ᴀ ʙ ʏ 」〞
 
 │
@@ -193,7 +194,7 @@ async def greet_new_member(_, member: ChatMemberUpdated):
 ├── ɴ ᴏ  s ᴘ ᴀ ᴍ  ᴏ ʀ  18+  ᴄ ᴏ ɴ ᴛ ᴇ ɴ ᴛ .
 ├── ᴇ ɴ ᴊ ᴏ ʏ  ᴛ ʜ ᴇ  ᴍ ᴜ s ɪ ᴄ  ᴀ ɴ ᴅ  ᴠ ɪ ʙ ᴇ !
 │
-└──「 ᴘ ᴏ ᴡ ᴇ ʀ ᴇ ᴅ  ʙ ʏ  @Simple_Boy_1k 」
+└──「 ᴘ ᴏ ᴡ ᴇ ʀ ᴇ ᴅ  ʙ ʏ ꜱ ɪ ᴍ ᴩ ʟ ᴇ  」 </blockquote>
 """
 
         # Inline buttons
