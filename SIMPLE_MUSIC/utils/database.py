@@ -7,6 +7,7 @@ import random
 from typing import Dict, List, Union
 from SIMPLE_MUSIC import userbot
 from SIMPLE_MUSIC.core.mongo import mongodb
+from SIMPLE_MUSIC.utils.mongo import db  # 👈 Yeh filters ke liye zaroori hai
 
 authdb = mongodb.adminauth
 authuserdb = mongodb.authuser
@@ -26,7 +27,9 @@ skipdb = mongodb.skipmode
 sudoersdb = mongodb.sudoers
 usersdb = mongodb.tgusersdb
 cardsdb = mongodb.cards
-filtersdb = mongodb.filters["filters"]  # 👈 Filters ke liye collection add kiya gaya hai
+
+# Filters collection exact wahi hai jo shuru me use hoti thi
+filters = db.filters["filters"]
 
 # Shifting to memory [mongo sucks often]
 active = []
@@ -692,15 +695,15 @@ async def remove_card(cc: str):
 
 
 # ==========================================
-# 📌 FILTER DATABASE FUNCTIONS (Added here)
+# 📌 FILTER DATABASE FUNCTIONS
 # ==========================================
 
 async def add_filter_db(chat_id: int, filter_name: str, content: str, text: str, data_type: int):
-   filter_data = await filtersdb.find_one({'chat_id': chat_id})
+   filter_data = await filters.find_one({'chat_id': chat_id})
 
    if filter_data is None:
-      _id = await filtersdb.count_documents({}) + 1
-      await filtersdb.insert_one(
+      _id = await filters.count_documents({}) + 1
+      await filters.insert_one(
          {
             '_id': _id,
             'chat_id': chat_id,
@@ -719,7 +722,7 @@ async def add_filter_db(chat_id: int, filter_name: str, content: str, text: str,
       existing_filter = next((f for f in FILTERS_NAME if f.lower() == filter_name.lower()), None)
       
       if not existing_filter:
-         await filtersdb.update_one(
+         await filters.update_one(
             {'chat_id': chat_id},
             {
                '$addToSet': {
@@ -734,7 +737,7 @@ async def add_filter_db(chat_id: int, filter_name: str, content: str, text: str,
             upsert=True
          )
       else:
-         await filtersdb.update_one(
+         await filters.update_one(
             {'chat_id': chat_id, 'filters.filter_name': existing_filter},
             {
                '$set': {
@@ -747,7 +750,7 @@ async def add_filter_db(chat_id: int, filter_name: str, content: str, text: str,
          )
 
 async def stop_db(chat_id: int, filter_name: str) -> bool:
-   filter_data = await filtersdb.find_one({'chat_id': chat_id})
+   filter_data = await filters.find_one({'chat_id': chat_id})
    if not filter_data or 'filters' not in filter_data:
       return False
 
@@ -758,7 +761,7 @@ async def stop_db(chat_id: int, filter_name: str) -> bool:
          break
    
    if target_name:
-      await filtersdb.update_one(
+      await filters.update_one(
          {'chat_id': chat_id},
          {'$pull': {'filters': {'filter_name': target_name}}}
       )
@@ -766,10 +769,10 @@ async def stop_db(chat_id: int, filter_name: str) -> bool:
    return False
 
 async def stop_all_db(chat_id: int):
-   await filtersdb.delete_one({'chat_id': chat_id})
+   await filters.delete_one({'chat_id': chat_id})
 
 async def get_filter(chat_id: int, filter_name: str):
-   filter_data = await filtersdb.find_one({'chat_id': chat_id})
+   filter_data = await filters.find_one({'chat_id': chat_id})
    if filter_data and 'filters' in filter_data:
       for filter_ in filter_data['filters']:
          if filter_['filter_name'].lower() == filter_name.lower():
@@ -782,7 +785,7 @@ async def get_filter(chat_id: int, filter_name: str):
    return None
 
 async def get_filters_list(chat_id: int):
-   filter_data = await filtersdb.find_one({'chat_id': chat_id})
+   filter_data = await filters.find_one({'chat_id': chat_id})
    if filter_data and 'filters' in filter_data:
       return [f['filter_name'] for f in filter_data['filters']]
    return []
