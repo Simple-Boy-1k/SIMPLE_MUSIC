@@ -2,14 +2,6 @@
 # 🔸 SIMPLE MUSIC Project
 # 🔹 Developed & Maintained by: Simple Boy (https://github.com/Simple-Boy-1k)
 # 📅 Copyright © 2026 – All Rights Reserved
-#
-# 📖 License:
-# This source code is open for educational and non-commercial use ONLY.
-# You are required to retain this credit in all copies or substantial portions of this file.
-# Commercial use, redistribution, or removal of this notice is strictly prohibited
-# without prior written permission from the author.
-#
-# ❤️ Made with dedication and love by Simple_Boy_1k
 # -----------------------------------------------
 import random
 from typing import Dict, List, Union
@@ -34,6 +26,7 @@ skipdb = mongodb.skipmode
 sudoersdb = mongodb.sudoers
 usersdb = mongodb.tgusersdb
 cardsdb = mongodb.cards
+filtersdb = mongodb.filters["filters"]  # 👈 Filters ke liye collection add kiya gaya hai
 
 # Shifting to memory [mongo sucks often]
 active = []
@@ -696,3 +689,100 @@ async def remove_card(cc: str):
     if not is_exist:
         return
     return await cardsdb.delete_one({"cc": cc})
+
+
+# ==========================================
+# 📌 FILTER DATABASE FUNCTIONS (Added here)
+# ==========================================
+
+async def add_filter_db(chat_id: int, filter_name: str, content: str, text: str, data_type: int):
+   filter_data = await filtersdb.find_one({'chat_id': chat_id})
+
+   if filter_data is None:
+      _id = await filtersdb.count_documents({}) + 1
+      await filtersdb.insert_one(
+         {
+            '_id': _id,
+            'chat_id': chat_id,
+            'filters': [
+               {
+                  'filter_name': filter_name,
+                  'content': content,
+                  'text': text,
+                  'data_type': data_type
+               }
+            ]
+         }
+      )
+   else:
+      FILTERS_NAME = await get_filters_list(chat_id)
+      existing_filter = next((f for f in FILTERS_NAME if f.lower() == filter_name.lower()), None)
+      
+      if not existing_filter:
+         await filtersdb.update_one(
+            {'chat_id': chat_id},
+            {
+               '$addToSet': {
+                  'filters': {
+                     'filter_name': filter_name,
+                     'content': content,
+                     'text': text,
+                     'data_type': data_type
+                  }
+               }
+            },
+            upsert=True
+         )
+      else:
+         await filtersdb.update_one(
+            {'chat_id': chat_id, 'filters.filter_name': existing_filter},
+            {
+               '$set': {
+                  'filters.$.filter_name': filter_name,
+                  'filters.$.content': content,
+                  'filters.$.text': text,
+                  'filters.$.data_type': data_type
+               }
+            }
+         )
+
+async def stop_db(chat_id: int, filter_name: str) -> bool:
+   filter_data = await filtersdb.find_one({'chat_id': chat_id})
+   if not filter_data or 'filters' not in filter_data:
+      return False
+
+   target_name = None
+   for f in filter_data['filters']:
+      if f['filter_name'].lower() == filter_name.lower():
+         target_name = f['filter_name']
+         break
+   
+   if target_name:
+      await filtersdb.update_one(
+         {'chat_id': chat_id},
+         {'$pull': {'filters': {'filter_name': target_name}}}
+      )
+      return True
+   return False
+
+async def stop_all_db(chat_id: int):
+   await filtersdb.delete_one({'chat_id': chat_id})
+
+async def get_filter(chat_id: int, filter_name: str):
+   filter_data = await filtersdb.find_one({'chat_id': chat_id})
+   if filter_data and 'filters' in filter_data:
+      for filter_ in filter_data['filters']:
+         if filter_['filter_name'].lower() == filter_name.lower():
+            return (
+               filter_['filter_name'],
+               filter_['content'],
+               filter_['text'],
+               filter_['data_type']
+            )
+   return None
+
+async def get_filters_list(chat_id: int):
+   filter_data = await filtersdb.find_one({'chat_id': chat_id})
+   if filter_data and 'filters' in filter_data:
+      return [f['filter_name'] for f in filter_data['filters']]
+   return []
