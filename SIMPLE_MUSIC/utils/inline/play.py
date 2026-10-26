@@ -17,9 +17,6 @@ def _get_style(style_val):
         return {"style": style_val}
     return {}
 
-# Chat-wise autoplay status dictionary
-autoplay_status = {}
-
 def track_markup(_, videoid, user_id, channel, fplay):
     r1 = random.choice(STYLES)
     buttons = [
@@ -55,42 +52,33 @@ def stream_markup_timer(_, chat_id, played, dur):
     umm = math.floor(percentage)
 
     if 0 < umm <= 10:
-        bar = "|———————————|-"
+        bar = "|♬—————————|-"
     elif 10 < umm < 20:
-        bar = "|———————————|-"
+        bar = "|—♬————————|-"
     elif 20 <= umm < 30:
-        bar = "|———————————|-"
+        bar = "|——♬———————|-"
     elif 30 <= umm < 40:
-        bar = "|———————————|-"
+        bar = "|———♬——————|-"
     elif 40 <= umm < 50:
-        bar = "|———————————|-"
+        bar = "|————♬—————|-"
     elif 50 <= umm < 60:
-        bar = "|———————————|-"
+        bar = "|—————♬————|-"
     elif 60 <= umm < 70:
-        bar = "|———————————|-"
+        bar = "|——————♬———|-"
     elif 70 <= umm < 80:
-        bar = "|———————————|-"
+        bar = "|———————♬——|-"
     elif 80 <= umm < 95:
-        bar = "|———————————|-"
+        bar = "|指標———————♬—|-"
     else:
-        bar = "|———————————|-"
+        bar = "|—————————♬|-"
 
     r1, r2, r3 = random.choices(STYLES, k=3)
-    is_autoplay = autoplay_status.get(chat_id, True)
-    autoplay_text = "ᴀᴜᴛᴏᴘʟᴀʏ : ᴇɴᴀʙʟᴇᴅ" if is_autoplay else "ᴀᴜᴛᴏᴘʟᴀʏ : ᴅɪꜱᴀʙʟᴇᴅ"
 
     buttons = [
         [
             InlineKeyboardButton(
-                text="ᴀᴅᴅ ᴍᴇ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ",
-                url=f"https://t.me/{app.username}?startgroup=true",
-                **_get_style(r1)
-            )
-        ],
-        [
-            InlineKeyboardButton(
                 text=f"{played} {bar} {remaining}",
-                callback_data="GetTimer",
+                url=f"https://t.me/{app.username}?startgroup=true",
                 **_get_style(r1)
             )
         ],
@@ -102,7 +90,14 @@ def stream_markup_timer(_, chat_id, played, dur):
             InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}", **_get_style(r2)),
         ],
         [
-            InlineKeyboardButton(text=autoplay_text, callback_data=f"AutoplayToggle {chat_id}", **_get_style(r3)),
+            InlineKeyboardButton(text="SUPPORT", url=config.SUPPORT_CHAT, **_get_style(r3)),
+            InlineKeyboardButton(text="CHANNEL", url=config.SUPPORT_CHANNEL, **_get_style(r3)),
+        ],
+        [
+            InlineKeyboardButton(text="AUTOPLAY SKIP", callback_data=f"AutoplaySkip {chat_id}", **_get_style(r3)),
+        ],
+        [
+            InlineKeyboardButton(text="AUTOPLAY : ON", callback_data=f"AutoplayToggle {chat_id}", **_get_style(r3)),
         ],
     ]
     return buttons
@@ -110,17 +105,7 @@ def stream_markup_timer(_, chat_id, played, dur):
 
 def stream_markup(_, chat_id):
     r1, r2 = random.choices(STYLES, k=2)
-    is_autoplay = autoplay_status.get(chat_id, True)
-    autoplay_text = "ᴀᴜᴛᴏᴘʟᴀʏ : ᴇɴᴀʙʟᴇᴅ" if is_autoplay else "ᴀᴜᴛᴏᴘʟᴀʏ : ᴅɪꜱᴀʙʟᴇᴅ"
-
     buttons = [
-        [
-            InlineKeyboardButton(
-                text="ᴀᴅᴅ ᴍᴇ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ",
-                url=f"https://t.me/{app.username}?startgroup=true",
-                **_get_style(r1)
-            )
-        ],
         [
             InlineKeyboardButton(text="▷", callback_data=f"ADMIN Resume|{chat_id}", **_get_style(r1)),
             InlineKeyboardButton(text="II", callback_data=f"ADMIN Pause|{chat_id}", **_get_style(r1)),
@@ -129,7 +114,14 @@ def stream_markup(_, chat_id):
             InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}", **_get_style(r1)),
         ],
         [
-            InlineKeyboardButton(text=autoplay_text, callback_data=f"AutoplayToggle {chat_id}", **_get_style(r2)),
+            InlineKeyboardButton(text="SUPPORT", url=config.SUPPORT_CHAT, **_get_style(r2)),
+            InlineKeyboardButton(text="CHANNEL", url=config.SUPPORT_CHANNEL, **_get_style(r2)),
+        ],
+        [
+            InlineKeyboardButton(text="AUTOPLAY SKIP", callback_data=f"AutoplaySkip {chat_id}", **_get_style(r2)),
+        ],
+        [
+            InlineKeyboardButton(text="AUTOPLAY : ON", callback_data=f"AutoplayToggle {chat_id}", **_get_style(r2)),
         ],
     ]
     return buttons
