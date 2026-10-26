@@ -29,6 +29,9 @@ def _get_style(style_val):
         return {"style": style_val}
     return {}
 
+# Chat-wise autoplay status store karne ke liye dictionary
+autoplay_status = {}
+
 def queue_markup(
     _,
     DURATION,
@@ -100,6 +103,7 @@ def queue_back_markup(_, CPLAY):
 
 def aq_markup(_, chat_id):
     r1, r2, r3, r4 = random.choices(STYLES, k=4)
+    autoplay_state = "ON" if autoplay_status.get(chat_id, True) else "OFF"
     buttons = [
         [
             InlineKeyboardButton(
@@ -116,8 +120,10 @@ def aq_markup(_, chat_id):
             InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}", **_get_style(r2)),
         ],
         [
-            InlineKeyboardButton(text="💬 sᴜᴘᴘᴏʀᴛ", url=config.SUPPORT_CHAT, **_get_style(r3)),
-            InlineKeyboardButton(text="📢 ᴄʜᴀɴɴᴇʟ", url=config.SUPPORT_CHANNEL, **_get_style(r3)),
+            InlineKeyboardButton(text="AUTOPLAY SKIP", callback_data=f"AutoplaySkip {chat_id}", **_get_style(r3)),
+        ],
+        [
+            InlineKeyboardButton(text=f"AUTOPLAY : {autoplay_state}", callback_data=f"AutoplayToggle {chat_id}", **_get_style(r3)),
         ],
         [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close", **_get_style(r4))],
     ]
