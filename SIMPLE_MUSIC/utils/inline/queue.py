@@ -44,12 +44,12 @@ def queue_markup(
     not_dur = [
         [
             InlineKeyboardButton(
-                text=_["QU_B_1"],
+                text="ǫᴜᴇᴜᴇ",
                 callback_data=f"GetQueued {CPLAY}|{videoid}",
                 **_get_style(r1)
             ),
             InlineKeyboardButton(
-                text=_["CLOSE_BUTTON"],
+                text="ᴄʟᴏꜱᴇ",
                 callback_data="close",
                 **_get_style(r1)
             ),
@@ -58,19 +58,19 @@ def queue_markup(
     dur_list = [
         [
             InlineKeyboardButton(
-                text=_["QU_B_2"].format(played, dur),
+                text=f"{played} / {dur}",
                 callback_data="GetTimer",
                 **_get_style(r1)
             )
         ],
         [
             InlineKeyboardButton(
-                text=_["QU_B_1"],
+                text="ǫᴜᴇᴜᴇ",
                 callback_data=f"GetQueued {CPLAY}|{videoid}",
                 **_get_style(r2)
             ),
             InlineKeyboardButton(
-                text=_["CLOSE_BUTTON"],
+                text="ᴄʟᴏꜱᴇ",
                 callback_data="close",
                 **_get_style(r2)
             ),
@@ -86,12 +86,12 @@ def queue_back_markup(_, CPLAY):
         [
             [
                 InlineKeyboardButton(
-                    text=_["BACK_BUTTON"],
+                    text="ʙᴀᴄᴋ",
                     callback_data=f"queue_back_timer {CPLAY}",
                     **_get_style(r1)
                 ),
                 InlineKeyboardButton(
-                    text=_["CLOSE_BUTTON"],
+                    text="ᴄʟᴏꜱᴇ",
                     callback_data="close",
                     **_get_style(r1)
                 ),
@@ -103,11 +103,14 @@ def queue_back_markup(_, CPLAY):
 
 def aq_markup(_, chat_id):
     r1, r2, r3, r4 = random.choices(STYLES, k=4)
-    autoplay_state = "ON" if autoplay_status.get(chat_id, True) else "OFF"
+    # Autoplay status check karke stylish ENABLED ya DISABLED dikhane ke liye
+    is_autoplay = autoplay_status.get(chat_id, True)
+    autoplay_text = "ᴀᴜᴛᴏᴘʟᴀʏ : ᴇɴᴀʙʟᴇᴅ" if is_autoplay else "ᴀᴜᴛᴏᴘʟᴀʏ : ᴅɪꜱᴀʙʟᴇᴅ"
+    
     buttons = [
         [
             InlineKeyboardButton(
-                text=_["S_B_3"], 
+                text="ᴀᴅᴅ ᴍᴇ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ", 
                 url=f"https://t.me/{app.username}?startgroup=true",
                 **_get_style(r1)
             )
@@ -120,11 +123,8 @@ def aq_markup(_, chat_id):
             InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}", **_get_style(r2)),
         ],
         [
-            InlineKeyboardButton(text="AUTOPLAY SKIP", callback_data=f"AutoplaySkip {chat_id}", **_get_style(r3)),
+            InlineKeyboardButton(text=autoplay_text, callback_data=f"AutoplayToggle {chat_id}", **_get_style(r3)),
         ],
-        [
-            InlineKeyboardButton(text=f"AUTOPLAY : {autoplay_state}", callback_data=f"AutoplayToggle {chat_id}", **_get_style(r3)),
-        ],
-        [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close", **_get_style(r4))],
+        [InlineKeyboardButton(text="ᴄʟᴏꜱᴇ", callback_data="close", **_get_style(r4))],
     ]
     return buttons
