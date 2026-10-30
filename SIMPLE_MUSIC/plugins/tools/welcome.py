@@ -148,17 +148,27 @@ async def greet_new_member(_, member: ChatMemberUpdated):
     if await wlcm.find_one(chat_id):
         return
 
-    # Check for a new member
+    # Check if there is a new chat member update
     if not member.new_chat_member:
         return
 
-    if member.new_chat_member.status in (
-        enums.ChatMemberStatus.BANNED,
-        enums.ChatMemberStatus.LEFT,
-    ):
+    # Purane member ka status change hone par welcome trigger na ho
+    old_status = member.old_chat_member.status if member.old_chat_member else None
+    if old_status not in (None, ChatMemberStatus.BANNED, ChatMemberStatus.LEFT):
+        return
+
+    new_status = member.new_chat_member.status
+    if new_status not in (
+        enums.ChatMemberStatus.MEMBER,
+        enums.ChatMemberStatus.OWNER,
+    ) and old_status is not None:
         return
 
     user = member.new_chat_member.user
+    
+    # Bot accounts ko skip karein
+    if user.is_bot:
+        return
 
     try:
         # Bot details
@@ -174,27 +184,27 @@ async def greet_new_member(_, member: ChatMemberUpdated):
             else "Not Set"
         )
 
-        # Welcome caption — screenshot-inspired small font
+        # Welcome caption — styled emojis and clean font
         caption_text = f"""
         <blockquote>
-「 ᴡ ᴇ ʟ ᴄ ᴏ ᴍ ᴇ  ʙ ᴀ ʙ ʏ 」〞
+✨ 𝙒 𝙀 𝙇 𝘾 𝙊 𝙈 𝙀   𝘽 𝘼 𝘽 𝙔 ✨
 
 │
-├──「 ɴ ᴀ ᴍ ᴇ 」 ➜ {user.first_name}
+├── 👤 𝗡𝗔𝗠𝗘 ➜ {user.first_name}
 │
-├──「 ᴜ s ᴇ ʀ 」 ➜ {username}
+├── 🔗 𝗨𝗦𝗘𝗥 ➜ {username}
 │
-├──「 ɢ ʀ ᴏ ᴜ ᴘ 」 ➜ {group_name}
+├── 🏠 𝗚𝗥𝗢𝗨𝗣 ➜ {group_name}
 │
-├──「 ᴍ ᴇ ᴍ ʙ ᴇ ʀ s 」 ➜ {count}
+├── 👥 𝗠𝗘𝗠𝗕𝗘𝗥𝗦 ➜ {count}
 │
-├──「 ɢ ʀ ᴏ ᴜ ᴘ  ʀ ᴜ ʟ ᴇ s 」
+├── 📜 𝗚𝗥𝗢𝗨𝗣 𝗥𝗨𝗟𝗘𝗦
 │
-├── ʀ ᴇ s ᴘ ᴇ ᴄ ᴛ  ᴀ ʟ ʟ  ᴍ ᴇ ᴍ ʙ ᴇ ʀ s .
-├── ɴ ᴏ  s ᴘ ᴀ ᴍ  ᴏ ʀ  18+  ᴄ ᴏ ɴ ᴛ ᴇ ɴ ᴛ .
-├── ᴇ ɴ ᴊ ᴏ ʏ  ᴛ ʜ ᴇ  ᴍ ᴜ s ɪ ᴄ  ᴀ ɴ ᴅ  ᴠ ɪ ʙ ᴇ !
+├── ⚡ ʀᴇꜱᴘᴇᴄᴛ ᴀʟʟ ᴍᴇᴍʙᴇʀꜱ.
+├── ⚡ ɴᴏ ꜱᴘᴀᴍ ᴏʀ 18+ ᴄᴏɴᴛᴇɴᴛ.
+├── ⚡ ᴇɴᴊᴏʏ ᴛʜᴇ ᴍᴜꜱɪᴄ & ᴠɪʙᴇ!
 │
-└──「 ᴘ ᴏ ᴡ ᴇ ʀ ᴇ ᴅ  ʙ ʏ ꜱ ɪ ᴍ ᴩ ʟ ᴇ  」 </blockquote>
+└── ⚡ 𝗣𝗢𝗪𝗘𝗥𝗘𝗗 𝗕𝗬 𝗦𝗜𝗠𝗣𝗟𝗘 ⚡ </blockquote>
 """
 
         # Inline buttons
