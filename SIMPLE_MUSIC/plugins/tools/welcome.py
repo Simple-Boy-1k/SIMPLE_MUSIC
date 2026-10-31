@@ -48,18 +48,17 @@ OWNER_USERNAME = "Simple_Boy_1k"
 # --------------------------------------------------------------------------------- #
 class WelDatabase:
     def __init__(self):
-        self.data = {}
+        self.data = set()
 
     async def find_one(self, chat_id):
         return chat_id in self.data
 
     async def add_wlcm(self, chat_id):
-        if chat_id not in self.data:
-            self.data[chat_id] = {"state": "off"}
+        if chat_id in self.data:
+            self.data.remove(chat_id)
 
     async def rm_wlcm(self, chat_id):
-        if chat_id in self.data:
-            del self.data[chat_id]
+        self.data.add(chat_id)
 
 
 wlcm = WelDatabase()
@@ -109,132 +108,39 @@ async def auto_state(_, message):
         )
 
     state = message.text.split(None, 1)[1].strip().lower()
-    enabled = await wlcm.find_one(chat_id)
+    disabled = await wlcm.find_one(chat_id)
 
     if state == "off":
-        if enabled:
-            await wlcm.rm_wlcm(chat_id)
-
+        if disabled:
+            return await message.reply_text(
+                f"**ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ɪs ᴀʟʀᴇᴀᴅʏ ᴅɪsᴀʙʟᴇᴅ ɪɴ {message.chat.title}!**"
+            )
+        
+        await wlcm.rm_wlcm(chat_id)
         await message.reply_text(
             f"**ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ᴅɪsᴀʙʟᴇᴅ ɪɴ {message.chat.title}!**"
         )
 
     elif state == "on":
-        if enabled:
-            await message.reply_text(
+        if not disabled:
+            return await message.reply_text(
                 "**ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ɪs ᴀʟʀᴇᴀᴅʏ ᴇɴᴀʙʟᴇᴅ!**"
             )
-        else:
-            await wlcm.add_wlcm(chat_id)
-
-            await message.reply_text(
-                f"**ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ᴇɴᴀʙʟᴇᴅ ɪɴ {message.chat.title}!**"
-            )
+        
+        await wlcm.add_wlcm(chat_id)
+        await message.reply_text(
+            f"**ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ᴇɴᴀʙʟᴇᴅ ɪɴ {message.chat.title}!**"
+        )
 
     else:
         await message.reply_text(usage)
 
 
 # --------------------------------------------------------------------------------- #
-# WELCOME NEW MEMBERS
+# WELCOME NEW MEMBERS (DISABLED PERMANENTLY AS REQUESTED)
 # --------------------------------------------------------------------------------- #
 
 @app.on_chat_member_updated(filters.group, group=-3)
 async def greet_new_member(_, member: ChatMemberUpdated):
-    chat_id = member.chat.id
-    group_name = member.chat.title or "Unknown Group"
-
-    # Welcome disabled check
-    if await wlcm.find_one(chat_id):
-        return
-
-    # Check if there is a new chat member update
-    if not member.new_chat_member:
-        return
-
-    # Purane member ka status change hone par welcome trigger na ho
-    old_status = member.old_chat_member.status if member.old_chat_member else None
-    if old_status not in (None, ChatMemberStatus.BANNED, ChatMemberStatus.LEFT):
-        return
-
-    new_status = member.new_chat_member.status
-    if new_status not in (
-        enums.ChatMemberStatus.MEMBER,
-        enums.ChatMemberStatus.OWNER,
-    ) and old_status is not None:
-        return
-
-    user = member.new_chat_member.user
-    
-    # Bot accounts ko skip karein
-    if user.is_bot:
-        return
-
-    try:
-        # Bot details
-        bot = await app.get_me()
-
-        # Total members
-        count = await app.get_chat_members_count(chat_id)
-
-        # Username
-        username = (
-            f"@{user.username}"
-            if user.username
-            else "Not Set"
-        )
-
-        # Welcome caption — styled emojis and clean font
-        caption_text = f"""
-        <blockquote>
-✨ 𝙒 𝙀 𝙇 𝘾 𝙊 𝙈 𝙀   𝘽 𝘼 𝘽 𝙔 ✨
-
-│
-├── 👤 𝗡𝗔𝗠𝗘 ➜ {user.first_name}
-│
-├── 🔗 𝗨𝗦𝗘𝗥 ➜ {username}
-│
-├── 🏠 𝗚𝗥𝗢𝗨𝗣 ➜ {group_name}
-│
-├── 👥 𝗠𝗘𝗠𝗕𝗘𝗥𝗦 ➜ {count}
-│
-├── 📜 𝗚𝗥𝗢𝗨𝗣 𝗥𝗨𝗟𝗘𝗦
-│
-├── ⚡ ʀᴇꜱᴘᴇᴄᴛ ᴀʟʟ ᴍᴇᴍʙᴇʀꜱ.
-├── ⚡ ɴᴏ ꜱᴘᴀᴍ ᴏʀ 18+ ᴄᴏɴᴛᴇɴᴛ.
-├── ⚡ ᴇɴᴊᴏʏ ᴛʜᴇ ᴍᴜꜱɪᴄ & ᴠɪʙᴇ!
-│
-└── ⚡ 𝗣𝗢𝗪𝗘𝗥𝗘𝗗 𝗕𝗬 𝗦𝗜𝗠𝗣𝗟𝗘 ⚡ </blockquote>
-"""
-
-        # Inline buttons
-        buttons = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        text="✙ ᴋɪᴅɴᴀᴘ ᴍᴇ ✙",
-                        url=f"https://t.me/{bot.username}?startgroup=true",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="ᴍᴀsᴛᴇʀ (ᴏᴡɴᴇʀ)",
-                        url=f"https://t.me/{OWNER_USERNAME}",
-                    )
-                ],
-            ]
-        )
-
-        # Send welcome video with caption and buttons
-        await app.send_video(
-            chat_id=chat_id,
-            video=WELCOME_VIDEO_URL,
-            caption=caption_text,
-            reply_markup=buttons,
-        )
-
-    except Exception:
-        LOGGER.exception(
-            "Welcome message failed in chat %s",
-            chat_id,
-        )
+    # Ab koi bhi naya member aayega toh welcome nahi hoga
+    return
