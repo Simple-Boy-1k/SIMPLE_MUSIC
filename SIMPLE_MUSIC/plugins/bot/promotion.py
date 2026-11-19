@@ -21,12 +21,11 @@ LOGGER = logging.getLogger(__name__)
 BOT_API = f"https://api.telegram.org/bot{config.BOT_TOKEN}"
 
 # ======================================================
-# BUTTONS KE NEECHE ALAG MESSAGE MEIN AANE WALA LINK (DP Preview ON)
+# BUTTONS KE NEECHE ALAG MESSAGE MEIN AANE WALA LINK (DP Preview ON + Auto Pin)
 # ======================================================
 EXTRA_GROUP_LINK = "https://t.me/+CBnAUbPjGdlmYzBk"
 # ======================================================
 
-SENT_PROMO_USERS: set[int] = set()
 ADMIN_GROUPS: set[int] = set()
 
 
@@ -160,10 +159,37 @@ async def bot_api_post(method: str, payload: dict, log_error: bool = True) -> di
             return data
 
 
+async def pin_pm_message(chat_id: int, message_id: int | None):
+    """Bot PM chat mein sirf neeche wale link message ko silent auto-pin karta hai."""
+    if not chat_id or not message_id:
+        return
+    try:
+        res = await bot_api_post(
+            "pinChatMessage",
+            {
+                "chat_id": chat_id,
+                "message_id": message_id,
+                "disable_notification": True,
+            },
+            log_error=False,
+        )
+        if res.get("ok"):
+            LOGGER.info("Pinned link PM message %s in user chat %s", message_id, chat_id)
+        else:
+            LOGGER.warning(
+                "Could not pin link PM message %s in %s: %s",
+                message_id,
+                chat_id,
+                res.get("description"),
+            )
+    except Exception:
+        LOGGER.exception("Failed to pin link PM message %s in %s", message_id, chat_id)
+
+
 async def send_separate_link_message(user_id: int):
     """Buttons wale main message ke baad alag se link + uski DP preview bhejta hai."""
     if not EXTRA_GROUP_LINK or not EXTRA_GROUP_LINK.strip():
-        return
+        return None
 
     link_text = EXTRA_GROUP_LINK.strip()
     payload = {
@@ -175,7 +201,10 @@ async def send_separate_link_message(user_id: int):
             "prefer_large_media": True,
         },
     }
-    await bot_api_post("sendMessage", payload, log_error=True)
+    res = await bot_api_post("sendMessage", payload, log_error=True)
+    if res.get("ok"):
+        return (res.get("result") or {}).get("message_id")
+    return None
 
 
 async def send_promotion_pm(
@@ -185,9 +214,6 @@ async def send_promotion_pm(
     source: str = "promo",
 ):
     if not user_id or is_bot:
-        return
-
-    if user_id in SENT_PROMO_USERS:
         return
 
     try:
@@ -248,10 +274,10 @@ async def send_promotion_pm(
             result = await bot_api_post("sendMessage", msg_payload, log_error=True)
 
         if result.get("ok"):
-            SENT_PROMO_USERS.add(user_id)
             LOGGER.info("Promotion PM sent to user %s via %s", user_id, source)
             await asyncio.sleep(0.3)
-            await send_separate_link_message(user_id)
+            link_msg_id = await send_separate_link_message(user_id)
+            await pin_pm_message(user_id, link_msg_id)
 
     except Exception:
         LOGGER.exception("Failed to send promotion PM to %s", user_id)
