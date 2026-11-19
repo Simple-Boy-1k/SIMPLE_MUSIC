@@ -33,8 +33,8 @@ def get_bot_username() -> str:
 def make_promotion_keyboard(_):
     """Auto PM ke liye 3 buttons (danger color mein):
     - Add Me In Group
-    - My Network (Group link)
-    - My Home (Channel link)
+    - My Network (pehle se set group link, bot username nahi)
+    - My Home (channel link)
     """
 
     bot_username = get_bot_username()
@@ -45,17 +45,19 @@ def make_promotion_keyboard(_):
         else getattr(config, "SUPPORT_GROUP", "https://t.me/telegram")
     )
 
-    # My Network -> Group link
+    # My Network -> Jo group link pehle se set hai wahi (bot username nahi)
     network_url = (
         getattr(config, "SUPPORT_GROUP", None)
         or getattr(config, "NETWORK_URL", None)
-        or (f"https://t.me/{bot_username}" if bot_username else "https://t.me/telegram")
+        or getattr(config, "GROUP_LINK", None)
+        or "https://t.me/telegram"
     )
 
     # My Home -> Channel link
     home_url = (
         getattr(config, "SUPPORT_CHANNEL", None)
         or getattr(config, "HOME_URL", None)
+        or getattr(config, "CHANNEL_LINK", None)
         or (f"https://t.me/{bot_username}" if bot_username else "https://t.me/telegram")
     )
 
