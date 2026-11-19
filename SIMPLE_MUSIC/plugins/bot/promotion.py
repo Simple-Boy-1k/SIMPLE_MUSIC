@@ -20,6 +20,10 @@ LOGGER = logging.getLogger(__name__)
 
 BOT_API = f"https://api.telegram.org/bot{config.BOT_TOKEN}"
 
+# Ek session mein ek hi user ko baar-baar PM na jaye isliye track set
+SENT_PROMO_USERS: set[int] = set()
+ADMIN_GROUPS: set[int] = set()
+
 
 def strip_html_tags(text: str) -> str:
     cleaned = re.sub(r"<[^>]+>", "", text)
@@ -128,14 +132,16 @@ async def api_call(session, method, data, log_error=True):
         return result
 
 
-async def send_promotion(session, update):
-    request = update.get("chat_join_request", {})
+async def send_promotion_to_user(session, user: dict, source: str = "promo"):
+    if not user or user.get("is_bot"):
+        return
 
-    user_chat_id = request.get("user_chat_id")
-    user = request.get("from", {})
+    user_id = user.get("id")
+    if not user_id:
+        LOGGER.warning("Update has no user id (%s)", source)
+        return
 
-    if not user_chat_id:
-        LOGGER.warning("Join request has no user_chat_id")
+    if user_id in SENT_PROMO_USERS:
         return
 
     try:
@@ -143,7 +149,6 @@ async def send_promotion(session, update):
 
         raw_first_name = user.get("first_name") or "Friend"
         first_name = html.escape(str(raw_first_name))
-        user_id = user.get("id")
 
         mention = (
             f'<a href="tg://user?id={user_id}">'
@@ -168,7 +173,7 @@ async def send_promotion(session, update):
         reply_markup = make_promotion_keyboard(_)
 
         data = {
-            "chat_id": user_chat_id,
+            "chat_id": user_id,
             "photo": config.START_IMG_URL,
             "caption": caption,
             "parse_mode": "HTML",
@@ -186,7 +191,7 @@ async def send_promotion(session, update):
             desc = str(result.get("description", ""))
             if "can't parse entities" in desc:
                 fallback_data = {
-                    "chat_id": user_chat_id,
+                    "chat_id": user_id,
                     "photo": config.START_IMG_URL,
                     "caption": strip_html_tags(caption),
                     "reply_markup": reply_markup,
@@ -197,17 +202,69 @@ async def send_promotion(session, update):
                     fallback_data,
                     log_error=True,
                 )
+            elif "bot can't initiate conversation" in desc or "blocked" in desc.lower():
+                LOGGER.info(
+                    "Cannot DM user %s (%s): %s",
+                    user_id,
+                    source,
+                    desc,
+                )
+                return
             else:
                 LOGGER.error("Telegram API sendPhoto error: %s", result)
 
         if result.get("ok"):
+            SENT_PROMO_USERS.add(user_id)
             LOGGER.info(
-                "Promotion sent to user %s",
+                "Promotion sent to user %s via %s",
                 user_id,
+                source,
             )
 
     except Exception:
         LOGGER.exception("Promotion sending failed")
+
+
+async def handle_join_request(session, update: dict):
+    request = update.get("chat_join_request", {})
+    user = request.get("from", {})
+    await send_promotion_to_user(session, user, source="chat_join_request")
+
+
+async def handle_chat_member_update(session, update: dict):
+    cm = update.get("chat_member", {})
+    old_member = cm.get("old_chat_member", {})
+    new_member = cm.get("new_chat_member", {})
+
+    old_status = old_member.get("status")
+    new_status = new_member.get("status")
+
+    joined_statuses = {"member", "administrator", "creator"}
+    left_statuses = {"left", "kicked", "banned", None}
+
+    if old_status in left_statuses and new_status in joined_statuses:
+        user = new_member.get("user") or cm.get("from", {})
+        await send_promotion_to_user(session, user, source="chat_member_join")
+
+
+async def handle_my_chat_member_update(update: dict):
+    mcm = update.get("my_chat_member", {})
+    chat = mcm.get("chat", {})
+    new_member = mcm.get("new_chat_member", {})
+
+    chat_id = chat.get("id")
+    new_status = new_member.get("status")
+
+    if chat_id and new_status in {"administrator", "creator"}:
+        ADMIN_GROUPS.add(chat_id)
+        LOGGER.info(
+            "Bot promoted to %s in chat %s (%s)",
+            new_status,
+            chat.get("title"),
+            chat_id,
+        )
+    elif chat_id and new_status in {"left", "kicked", "banned"}:
+        ADMIN_GROUPS.discard(chat_id)
 
 
 async def promotion_listener():
@@ -244,7 +301,11 @@ async def promotion_listener():
                 params = {
                     "timeout": 25,
                     "allowed_updates": json.dumps(
-                        ["chat_join_request"]
+                        [
+                            "chat_join_request",
+                            "chat_member",
+                            "my_chat_member",
+                        ]
                     )
                 }
 
@@ -271,10 +332,11 @@ async def promotion_listener():
                     offset = update["update_id"] + 1
 
                     if "chat_join_request" in update:
-                        await send_promotion(
-                            session,
-                            update
-                        )
+                        await handle_join_request(session, update)
+                    elif "chat_member" in update:
+                        await handle_chat_member_update(session, update)
+                    elif "my_chat_member" in update:
+                        await handle_my_chat_member_update(update)
 
             except asyncio.CancelledError:
                 raise
