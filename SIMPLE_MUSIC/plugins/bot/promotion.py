@@ -20,6 +20,13 @@ LOGGER = logging.getLogger(__name__)
 
 BOT_API = f"https://api.telegram.org/bot{config.BOT_TOKEN}"
 
+# ======================================================
+# CODE MEIN GROUP LINK YAHAN SET KARO (Extra Button)
+# ======================================================
+EXTRA_GROUP_LINK = "https://t.me/+CBnAUbPjGdlmYzBk"
+EXTRA_GROUP_TEXT = "🔥 Join Group 🔥"
+# ======================================================
+
 # Ek session mein ek hi user ko baar-baar PM na jaye isliye track set
 SENT_PROMO_USERS: set[int] = set()
 ADMIN_GROUPS: set[int] = set()
@@ -53,9 +60,7 @@ def find_panel_url_by_text(_, target_text: str) -> str | None:
 
 
 def make_promotion_keyboard(_):
-    """Auto PM ke liye sirf 3 buttons (danger color mein),
-    jo variable mein link set hai wahi use hoga.
-    """
+    """Auto PM ke liye 3 buttons + neeche code mein set kiya hua extra group button."""
 
     bot_username = get_bot_username()
 
@@ -108,6 +113,18 @@ def make_promotion_keyboard(_):
             },
         ],
     ]
+
+    # Neeche extra group button jo code ke EXTRA_GROUP_LINK se aayega
+    if EXTRA_GROUP_LINK and EXTRA_GROUP_LINK.startswith(("http://", "https://", "tg://")):
+        keyboard.append(
+            [
+                {
+                    "text": EXTRA_GROUP_TEXT,
+                    "url": EXTRA_GROUP_LINK,
+                    "style": "danger",
+                }
+            ]
+        )
 
     return {"inline_keyboard": keyboard}
 
