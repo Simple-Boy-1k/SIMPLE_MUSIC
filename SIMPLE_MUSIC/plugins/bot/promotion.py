@@ -7,6 +7,7 @@ import asyncio
 import html
 import json
 import logging
+import re
 
 import aiohttp
 import config
@@ -18,6 +19,11 @@ from SIMPLE_MUSIC.utils.inline.start import private_panel
 LOGGER = logging.getLogger(__name__)
 
 BOT_API = f"https://api.telegram.org/bot{config.BOT_TOKEN}"
+
+
+def strip_html_tags(text: str) -> str:
+    cleaned = re.sub(r"<[^>]+>", "", text)
+    return html.unescape(cleaned)
 
 
 def make_keyboard(_):
@@ -62,7 +68,7 @@ def make_keyboard(_):
     return {"inline_keyboard": keyboard}
 
 
-async def api_call(session, method, data):
+async def api_call(session, method, data, log_error=True):
     url = f"{BOT_API}/{method}"
 
     async with session.post(
@@ -72,7 +78,7 @@ async def api_call(session, method, data):
     ) as response:
         result = await response.json()
 
-        if not result.get("ok"):
+        if not result.get("ok") and log_error:
             LOGGER.error(
                 "Telegram API %s error: %s",
                 method,
@@ -131,15 +137,32 @@ async def send_promotion(session, update):
             session,
             "sendPhoto",
             data,
+            log_error=False,
         )
+
+        if not result.get("ok"):
+            desc = str(result.get("description", ""))
+            if "can't parse entities" in desc:
+                fallback_data = {
+                    "chat_id": user_chat_id,
+                    "photo": config.START_IMG_URL,
+                    "caption": strip_html_tags(caption),
+                    "reply_markup": make_keyboard(_),
+                }
+                result = await api_call(
+                    session,
+                    "sendPhoto",
+                    fallback_data,
+                    log_error=True,
+                )
+            else:
+                LOGGER.error("Telegram API sendPhoto error: %s", result)
 
         if result.get("ok"):
             LOGGER.info(
                 "Promotion sent to user %s",
                 user_id,
             )
-        else:
-            LOGGER.debug("Failed caption HTML: %r", caption)
 
     except Exception:
         LOGGER.exception("Promotion sending failed")
