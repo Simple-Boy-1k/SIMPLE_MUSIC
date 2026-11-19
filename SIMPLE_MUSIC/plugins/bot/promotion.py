@@ -8,7 +8,6 @@ import logging
 import re
 
 import aiohttp
-from pyrogram import filters
 from pyrogram.types import ChatJoinRequest, ChatMemberUpdated
 
 import config
@@ -20,12 +19,11 @@ LOGGER = logging.getLogger(__name__)
 
 BOT_API = f"https://api.telegram.org/bot{config.BOT_TOKEN}"
 
-# ======================================================
-# CODE MEIN GROUP LINK SET HAI (Neeche seedha link aayega, button nahi)
-# ======================================================
+# Extra link off rakha hai taaki message clean rahe
 EXTRA_GROUP_LINK = "https://t.me/+CBnAUbPjGdlmYzBk"
-EXTRA_GROUP_LABEL = "Group Link"
-# ======================================================
+EXTRA_GROUP_LABEL = "https://t.me/+CBnAUbPjGdlmYzBk"
+EXTRA_GROUP_LINK = "https://t.me/+CBnAUbPjGdlmYzBk"
+EXTRA_GROUP_LABEL = "https://t.me/+CBnAUbPjGdlmYzBk"
 
 SENT_PROMO_USERS: set[int] = set()
 ADMIN_GROUPS: set[int] = set()
@@ -196,6 +194,7 @@ async def send_promotion_pm(user_id: int, first_name: str | None, is_bot: bool =
                     msg_payload = {
                         "chat_id": user_id,
                         "text": strip_html_tags(caption),
+                        "disable_web_page_preview": True,
                         "reply_markup": reply_markup,
                     }
                     result = await bot_api_post("sendMessage", msg_payload, log_error=True)
@@ -204,6 +203,7 @@ async def send_promotion_pm(user_id: int, first_name: str | None, is_bot: bool =
                 "chat_id": user_id,
                 "text": caption,
                 "parse_mode": "HTML",
+                "disable_web_page_preview": True,
                 "reply_markup": reply_markup,
             }
             result = await bot_api_post("sendMessage", msg_payload, log_error=True)
