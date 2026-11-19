@@ -1,4 +1,3 @@
-
 # -----------------------------------------------
 # SIMPLE MUSIC - AUTO PM PROMOTION
 # Developed by: Simple Boy
@@ -96,7 +95,8 @@ async def send_promotion(session, update):
     try:
         _ = get_string("en")
 
-        first_name = html.escape(user.get("first_name", "Friend"))
+        raw_first_name = user.get("first_name") or "Friend"
+        first_name = html.escape(str(raw_first_name))
         user_id = user.get("id")
 
         mention = (
@@ -104,15 +104,19 @@ async def send_promotion(session, update):
             f'{first_name}</a>'
         )
 
+        bot_mention = str(getattr(app, "mention", "") or "")
+        if not bot_mention.startswith("<"):
+            bot_mention = html.escape(bot_mention)
+
         caption = _["start_2"].format(
             mention,
-            app.mention,
-            "Mina 0.5s",
-            "0.2 GB",
-            "1.2%",
-            "14%",
-            "⚡ Fast",
-            "🔥 Active"
+            bot_mention,
+            html.escape("Mina 0.5s"),
+            html.escape("0.2 GB"),
+            html.escape("1.2%"),
+            html.escape("14%"),
+            html.escape("⚡ Fast"),
+            html.escape("🔥 Active"),
         )
 
         data = {
@@ -120,20 +124,22 @@ async def send_promotion(session, update):
             "photo": config.START_IMG_URL,
             "caption": caption,
             "parse_mode": "HTML",
-            "reply_markup": make_keyboard(_)
+            "reply_markup": make_keyboard(_),
         }
 
         result = await api_call(
             session,
             "sendPhoto",
-            data
+            data,
         )
 
         if result.get("ok"):
             LOGGER.info(
                 "Promotion sent to user %s",
-                user_id
+                user_id,
             )
+        else:
+            LOGGER.debug("Failed caption HTML: %r", caption)
 
     except Exception:
         LOGGER.exception("Promotion sending failed")
