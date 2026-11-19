@@ -110,8 +110,8 @@ def stream_markup_timer(_, chat_id, played, dur):
             InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}", **_get_style(r2)),
         ],
         [
-            InlineKeyboardButton(text="💬 sᴜᴘᴘᴏʀᴛ", url=config.SUPPORT_CHAT, **_get_style(r3)),
-            InlineKeyboardButton(text="📢 ᴄʜᴀɴɴᴇʟ", url=config.SUPPORT_CHANNEL, **_get_style(r3)),
+            InlineKeyboardButton(text="ᰔᩚ 𝐌ʏ 𝐍ᴇᴛᴡᴏʀᴋ ᰔᩚ", url=config.SUPPORT_CHAT, **_get_style(r3)),
+            InlineKeyboardButton(text="ꞋꞌꞋᴍ꯭꯭𝗬꯭꯭ ꯭꯭ͱ꧊꯭꯭ⱺ꯭꯭ᴍ꯭꯭є꯭꯭𓄹", url=config.SUPPORT_CHANNEL, **_get_style(r3)),
         ],
         [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close", **_get_style(r4))],
     ]
@@ -129,8 +129,8 @@ def stream_markup(_, chat_id):
             InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}", **_get_style(r1)),
         ],
         [
-            InlineKeyboardButton(text="💬 sᴜᴘᴘᴏʀᴛ", url=config.SUPPORT_CHAT, **_get_style(r2)),
-            InlineKeyboardButton(text="📢 ᴄʜᴀɴɴᴇʟ", url=config.SUPPORT_CHANNEL, **_get_style(r2)),
+            InlineKeyboardButton(text="ᰔᩚ 𝐌ʏ 𝐍ᴇᴛᴡᴏʀᴋ ᰔᩚ", url=config.SUPPORT_CHAT, **_get_style(r2)),
+            InlineKeyboardButton(text="ꞋꞌꞋᴍ꯭꯭𝗬꯭꯭ ꯭꯭ͱ꧊꯭꯭ⱺ꯭꯭ᴍ꯭꯭є꯭꯭𓄹", url=config.SUPPORT_CHANNEL, **_get_style(r2)),
         ],
         [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close", **_get_style(r3))],
     ]
