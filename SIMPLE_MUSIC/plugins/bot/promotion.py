@@ -14,7 +14,6 @@ import config
 
 from strings import get_string
 from SIMPLE_MUSIC import app
-from SIMPLE_MUSIC.utils.inline.start import private_panel
 
 LOGGER = logging.getLogger(__name__)
 
@@ -26,44 +25,58 @@ def strip_html_tags(text: str) -> str:
     return html.unescape(cleaned)
 
 
-def make_keyboard(_):
-    """Reuse existing /start inline buttons."""
+def get_bot_username() -> str:
+    username = getattr(app, "username", None) or getattr(config, "BOT_USERNAME", "")
+    return str(username).lstrip("@")
 
-    panel = private_panel(_)
-    keyboard = []
 
-    for row in panel:
-        new_row = []
+def make_promotion_keyboard(_):
+    """Auto PM ke liye sirf 3 buttons (danger color mein)."""
 
-        for button in row:
-            item = {"text": button.text}
+    bot_username = get_bot_username()
 
-            # Owner button: convert user_id button to profile URL
-            user_id = getattr(button, "user_id", None)
+    add_group_url = (
+        f"https://t.me/{bot_username}?startgroup=true"
+        if bot_username
+        else getattr(config, "SUPPORT_GROUP", "https://t.me/telegram")
+    )
 
-            if user_id:
-                username = getattr(config, "OWNER_USERNAME", "")
-                if username:
-                    item["url"] = f"https://t.me/{username.lstrip('@')}"
-                else:
-                    item["url"] = f"tg://user?id={user_id}"
+    network_url = (
+        getattr(config, "SUPPORT_CHANNEL", None)
+        or getattr(config, "NETWORK_URL", None)
+        or (f"https://t.me/{bot_username}" if bot_username else "https://t.me/telegram")
+    )
 
-            elif getattr(button, "url", None):
-                item["url"] = button.url
+    home_url = (
+        getattr(config, "HOME_URL", None)
+        or (f"https://t.me/{bot_username}" if bot_username else "https://t.me/telegram")
+    )
 
-            elif getattr(button, "callback_data", None):
-                data = button.callback_data
-                if isinstance(data, bytes):
-                    data = data.decode("utf-8")
-                item["callback_data"] = str(data)
+    btn_add_group = _["S_B_3"] if "S_B_3" in _ else "✙ Add Me In Group ✙"
+    btn_network = _["S_B_2"] if "S_B_2" in _ else "My Network"
+    btn_home = _["S_B_6"] if "S_B_6" in _ else "My Home"
 
-            else:
-                continue
-
-            new_row.append(item)
-
-        if new_row:
-            keyboard.append(new_row)
+    keyboard = [
+        [
+            {
+                "text": btn_add_group,
+                "url": add_group_url,
+                "style": "danger",
+            }
+        ],
+        [
+            {
+                "text": btn_network,
+                "url": network_url,
+                "style": "danger",
+            },
+            {
+                "text": btn_home,
+                "url": home_url,
+                "style": "danger",
+            },
+        ],
+    ]
 
     return {"inline_keyboard": keyboard}
 
@@ -125,12 +138,14 @@ async def send_promotion(session, update):
             html.escape("🔥 Active"),
         )
 
+        reply_markup = make_promotion_keyboard(_)
+
         data = {
             "chat_id": user_chat_id,
             "photo": config.START_IMG_URL,
             "caption": caption,
             "parse_mode": "HTML",
-            "reply_markup": make_keyboard(_),
+            "reply_markup": reply_markup,
         }
 
         result = await api_call(
@@ -147,7 +162,7 @@ async def send_promotion(session, update):
                     "chat_id": user_chat_id,
                     "photo": config.START_IMG_URL,
                     "caption": strip_html_tags(caption),
-                    "reply_markup": make_keyboard(_),
+                    "reply_markup": reply_markup,
                 }
                 result = await api_call(
                     session,
