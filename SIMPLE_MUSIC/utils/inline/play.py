@@ -14,8 +14,8 @@
 import math
 import random
 import config
-from pyrogram import enums, filters
-from pyrogram.types import InlineKeyboardButton, CallbackQuery
+from pyrogram import enums
+from pyrogram.types import InlineKeyboardButton
 from SIMPLE_MUSIC import app
 from SIMPLE_MUSIC.utils.formatters import time_to_seconds
 
@@ -30,33 +30,8 @@ def _get_style(style_val):
         return {"style": style_val}
     return {}
 
-# Chat-wise autoplay status store karne ke liye dictionary
-autoplay_status = {}
-
-@app.on_callback_query(filters.regex("AutoplayToggle"))
-async def toggle_autoplay_callback(_, query: CallbackQuery):
-    try:
-        data = query.data.split()
-        chat_id = int(data[1])
-    except Exception:
-        chat_id = query.message.chat.id
-
-    current_state = autoplay_status.get(chat_id, True)
-    new_state = not current_state
-    autoplay_status[chat_id] = new_state
-
-    # Bina kisi pop-up ke seedha button update karne ke liye
-    await query.answer()
-
-    try:
-        markup = stream_markup(_, chat_id)
-        await query.message.edit_reply_markup(reply_markup=markup)
-    except Exception:
-        pass
-
-
 def track_markup(_, videoid, user_id, channel, fplay):
-    r1 = random.choice(STYLES)
+    r1, r2 = random.choices(STYLES, k=2)
     buttons = [
         [
             InlineKeyboardButton(
@@ -69,6 +44,13 @@ def track_markup(_, videoid, user_id, channel, fplay):
                 callback_data=f"MusicStream {videoid}|{user_id}|v|{channel}|{fplay}",
                 **_get_style(r1)
             ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=_["CLOSE_BUTTON"],
+                callback_data=f"forceclose {videoid}|{user_id}",
+                **_get_style(r2)
+            )
         ],
     ]
     return buttons
@@ -106,26 +88,17 @@ def stream_markup_timer(_, chat_id, played, dur):
     elif 70 <= umm < 80:
         bar = "|———————♬——|-"
     elif 80 <= umm < 95:
-        bar = "|指標———————♬—|-"
+        bar = "|————————♬—|-"
     else:
         bar = "|—————————♬|-"
 
-    r1, r2, r3 = random.choices(STYLES, k=3)
-    is_autoplay = autoplay_status.get(chat_id, True)
-    autoplay_text = "ᴀᴜᴛᴏᴘʟᴀʏ : ᴇɴᴀʙʟᴇᴅ" if is_autoplay else "ᴀᴜᴛᴏᴘʟᴀʏ : ᴅɪꜱᴀʙʟᴇᴅ"
+    r1, r2, r3, r4 = random.choices(STYLES, k=4)
 
     buttons = [
         [
             InlineKeyboardButton(
-                text="ᴀᴅᴅ ᴍᴇ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ",
-                url=f"https://t.me/{app.username}?startgroup=true",
-                **_get_style(r1)
-            )
-        ],
-        [
-            InlineKeyboardButton(
                 text=f"{played} {bar} {remaining}",
-                callback_data="GetTimer",
+                url=f"https://t.me/{app.username}?startgroup=true",
                 **_get_style(r1)
             )
         ],
@@ -137,25 +110,17 @@ def stream_markup_timer(_, chat_id, played, dur):
             InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}", **_get_style(r2)),
         ],
         [
-            InlineKeyboardButton(text=autoplay_text, callback_data=f"AutoplayToggle {chat_id}", **_get_style(r3)),
+            InlineKeyboardButton(text="💬 sᴜᴘᴘᴏʀᴛ", url=config.SUPPORT_CHAT, **_get_style(r3)),
+            InlineKeyboardButton(text="📢 ᴄʜᴀɴɴᴇʟ", url=config.SUPPORT_CHANNEL, **_get_style(r3)),
         ],
+        [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close", **_get_style(r4))],
     ]
     return buttons
 
 
 def stream_markup(_, chat_id):
-    r1, r2 = random.choices(STYLES, k=2)
-    is_autoplay = autoplay_status.get(chat_id, True)
-    autoplay_text = "ᴀᴜᴛᴏᴘʟᴀʏ : ᴇɴᴀʙʟᴇᴅ" if is_autoplay else "ᴀᴜᴛᴏᴘʟᴀʏ : ᴅɪꜱᴀʙʟᴇᴅ"
-
+    r1, r2, r3 = random.choices(STYLES, k=3)
     buttons = [
-        [
-            InlineKeyboardButton(
-                text="ᴀᴅᴅ ᴍᴇ ɪɴ ʏᴏᴜʀ ɢʀᴏᴜᴘ",
-                url=f"https://t.me/{app.username}?startgroup=true",
-                **_get_style(r1)
-            )
-        ],
         [
             InlineKeyboardButton(text="▷", callback_data=f"ADMIN Resume|{chat_id}", **_get_style(r1)),
             InlineKeyboardButton(text="II", callback_data=f"ADMIN Pause|{chat_id}", **_get_style(r1)),
@@ -164,14 +129,16 @@ def stream_markup(_, chat_id):
             InlineKeyboardButton(text="▢", callback_data=f"ADMIN Stop|{chat_id}", **_get_style(r1)),
         ],
         [
-            InlineKeyboardButton(text=autoplay_text, callback_data=f"AutoplayToggle {chat_id}", **_get_style(r2)),
+            InlineKeyboardButton(text="💬 sᴜᴘᴘᴏʀᴛ", url=config.SUPPORT_CHAT, **_get_style(r2)),
+            InlineKeyboardButton(text="📢 ᴄʜᴀɴɴᴇʟ", url=config.SUPPORT_CHANNEL, **_get_style(r2)),
         ],
+        [InlineKeyboardButton(text=_["CLOSE_BUTTON"], callback_data="close", **_get_style(r3))],
     ]
     return buttons
 
 
 def playlist_markup(_, videoid, user_id, ptype, channel, fplay):
-    r1 = random.choice(STYLES)
+    r1, r2 = random.choices(STYLES, k=2)
     buttons = [
         [
             InlineKeyboardButton(
@@ -185,18 +152,32 @@ def playlist_markup(_, videoid, user_id, ptype, channel, fplay):
                 **_get_style(r1)
             ),
         ],
+        [
+            InlineKeyboardButton(
+                text=_["CLOSE_BUTTON"],
+                callback_data=f"forceclose {videoid}|{user_id}",
+                **_get_style(r2)
+            ),
+        ],
     ]
     return buttons
 
 
 def livestream_markup(_, videoid, user_id, mode, channel, fplay):
-    r1 = random.choice(STYLES)
+    r1, r2 = random.choices(STYLES, k=2)
     buttons = [
         [
             InlineKeyboardButton(
                 text=_["P_B_3"],
                 callback_data=f"LiveStream {videoid}|{user_id}|{mode}|{channel}|{fplay}",
                 **_get_style(r1)
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=_["CLOSE_BUTTON"],
+                callback_data=f"forceclose {videoid}|{user_id}",
+                **_get_style(r2)
             ),
         ],
     ]
@@ -223,6 +204,11 @@ def slider_markup(_, videoid, user_id, query, query_type, channel, fplay):
             InlineKeyboardButton(
                 text="◁",
                 callback_data=f"slider B|{query_type}|{query}|{user_id}|{channel}|{fplay}",
+                **_get_style(r2)
+            ),
+            InlineKeyboardButton(
+                text=_["CLOSE_BUTTON"],
+                callback_data=f"forceclose {query}|{user_id}",
                 **_get_style(r2)
             ),
             InlineKeyboardButton(
