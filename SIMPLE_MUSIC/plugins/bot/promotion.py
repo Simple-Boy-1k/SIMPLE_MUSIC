@@ -21,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 BOT_API = f"https://api.telegram.org/bot{config.BOT_TOKEN}"
 
 # ======================================================
-# BUTTONS KE NEECHE ALAG MESSAGE MEIN AANE WALA LINK
+# BUTTONS KE NEECHE ALAG MESSAGE MEIN AANE WALA LINK (DP Preview ON)
 # ======================================================
 EXTRA_GROUP_LINK = "https://t.me/+CBnAUbPjGdlmYzBk"
 # ======================================================
@@ -38,6 +38,20 @@ def strip_html_tags(text: str) -> str:
 def get_bot_username() -> str:
     username = getattr(app, "username", None) or getattr(config, "BOT_USERNAME", "")
     return str(username).lstrip("@")
+
+
+def get_promotion_photo() -> str | None:
+    """config se DP / start image URL uthata hai."""
+    candidates = [
+        getattr(config, "START_IMG_URL", None),
+        getattr(config, "START_PIC", None),
+        getattr(config, "PING_IMG_URL", None),
+        getattr(config, "STATS_IMG_URL", None),
+    ]
+    for img in candidates:
+        if img and str(img).strip():
+            return str(img).strip()
+    return None
 
 
 def find_panel_url_by_text(_, target_text: str) -> str | None:
@@ -147,7 +161,7 @@ async def bot_api_post(method: str, payload: dict, log_error: bool = True) -> di
 
 
 async def send_separate_link_message(user_id: int):
-    """Buttons wale main message ke baad alag se link message bhejta hai."""
+    """Buttons wale main message ke baad alag se link + uski DP preview bhejta hai."""
     if not EXTRA_GROUP_LINK or not EXTRA_GROUP_LINK.strip():
         return
 
@@ -155,7 +169,11 @@ async def send_separate_link_message(user_id: int):
     payload = {
         "chat_id": user_id,
         "text": link_text,
-        "link_preview_options": {"is_disabled": True},
+        "link_preview_options": {
+            "is_disabled": False,
+            "url": link_text,
+            "prefer_large_media": True,
+        },
     }
     await bot_api_post("sendMessage", payload, log_error=True)
 
@@ -176,7 +194,7 @@ async def send_promotion_pm(
         _ = get_string("en")
         caption = build_caption(_, user_id, first_name)
         reply_markup = make_promotion_keyboard(_)
-        photo = getattr(config, "START_IMG_URL", None)
+        photo = get_promotion_photo()
 
         if photo:
             payload = {
