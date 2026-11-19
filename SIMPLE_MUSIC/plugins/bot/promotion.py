@@ -3,6 +3,7 @@
 # Developed by: Simple Boy
 # -----------------------------------------------
 
+import asyncio
 import html
 import logging
 import re
@@ -20,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 BOT_API = f"https://api.telegram.org/bot{config.BOT_TOKEN}"
 
 # ======================================================
-# CAPTION KE SABSE NEECHE AANE WALA LINK
+# BUTTONS KE NEECHE ALAG MESSAGE MEIN AANE WALA LINK
 # ======================================================
 EXTRA_GROUP_LINK = "https://t.me/+CBnAUbPjGdlmYzBk"
 # ======================================================
@@ -120,7 +121,7 @@ def build_caption(_, user_id: int, first_name_raw: str | None) -> str:
         bot_mention = html.escape(bot_mention)
 
     if "start_2" in _:
-        base_caption = _["start_2"].format(
+        return _["start_2"].format(
             mention,
             bot_mention,
             html.escape("Mina 0.5s"),
@@ -130,22 +131,8 @@ def build_caption(_, user_id: int, first_name_raw: str | None) -> str:
             html.escape("⚡ Fast"),
             html.escape("🔥 Active"),
         )
-    else:
-        base_caption = f"<b>Hello {mention}! Welcome to {bot_mention}</b>"
 
-    if EXTRA_GROUP_LINK and EXTRA_GROUP_LINK.strip():
-        safe_link = html.escape(EXTRA_GROUP_LINK.strip())
-        footer_line = f"\n\n{safe_link}"
-
-        close_tag = "</blockquote>"
-        idx = base_caption.rfind(close_tag)
-        if idx != -1:
-            insert_pos = idx + len(close_tag)
-            base_caption = f"{base_caption[:insert_pos]}{footer_line}{base_caption[insert_pos:]}"
-        else:
-            base_caption = f"{base_caption}{footer_line}"
-
-    return base_caption
+    return f"<b>Hello {mention}! Welcome to {bot_mention}</b>"
 
 
 async def bot_api_post(method: str, payload: dict, log_error: bool = True) -> dict:
@@ -159,7 +146,26 @@ async def bot_api_post(method: str, payload: dict, log_error: bool = True) -> di
             return data
 
 
-async def send_promotion_pm(user_id: int, first_name: str | None, is_bot: bool = False, source: str = "promo"):
+async def send_separate_link_message(user_id: int):
+    """Buttons wale main message ke baad alag se link message bhejta hai."""
+    if not EXTRA_GROUP_LINK or not EXTRA_GROUP_LINK.strip():
+        return
+
+    link_text = EXTRA_GROUP_LINK.strip()
+    payload = {
+        "chat_id": user_id,
+        "text": link_text,
+        "link_preview_options": {"is_disabled": True},
+    }
+    await bot_api_post("sendMessage", payload, log_error=True)
+
+
+async def send_promotion_pm(
+    user_id: int,
+    first_name: str | None,
+    is_bot: bool = False,
+    source: str = "promo",
+):
     if not user_id or is_bot:
         return
 
@@ -195,9 +201,17 @@ async def send_promotion_pm(user_id: int, first_name: str | None, is_bot: bool =
 
                 if not result.get("ok"):
                     new_desc = str(result.get("description", ""))
-                    if "bot can't initiate conversation" in new_desc.lower() or "blocked" in new_desc.lower():
-                        LOGGER.warning("User %s hasn't started bot or blocked PM (%s)", user_id, source)
+                    if (
+                        "bot can't initiate conversation" in new_desc.lower()
+                        or "blocked" in new_desc.lower()
+                    ):
+                        LOGGER.warning(
+                            "User %s hasn't started bot or blocked PM (%s)",
+                            user_id,
+                            source,
+                        )
                         return
+
                     msg_payload = {
                         "chat_id": user_id,
                         "text": strip_html_tags(caption),
@@ -218,6 +232,8 @@ async def send_promotion_pm(user_id: int, first_name: str | None, is_bot: bool =
         if result.get("ok"):
             SENT_PROMO_USERS.add(user_id)
             LOGGER.info("Promotion PM sent to user %s via %s", user_id, source)
+            await asyncio.sleep(0.3)
+            await send_separate_link_message(user_id)
 
     except Exception:
         LOGGER.exception("Failed to send promotion PM to %s", user_id)
@@ -245,11 +261,26 @@ async def on_join_request(_, join_request: ChatJoinRequest):
 async def on_chat_member_update(_, update: ChatMemberUpdated):
     if update.new_chat_member and update.new_chat_member.user and update.new_chat_member.user.is_self:
         chat_id = update.chat.id if update.chat else None
-        status = getattr(update.new_chat_member.status, "value", str(update.new_chat_member.status)).lower()
-        if chat_id and status in {"administrator", "creator", "chatmemberstatus.administrator", "chatmemberstatus.creator"}:
+        status = getattr(
+            update.new_chat_member.status,
+            "value",
+            str(update.new_chat_member.status),
+        ).lower()
+        if chat_id and status in {
+            "administrator",
+            "creator",
+            "chatmemberstatus.administrator",
+            "chatmemberstatus.creator",
+        }:
             ADMIN_GROUPS.add(chat_id)
             LOGGER.info("Bot promoted to %s in chat %s", status, chat_id)
-        elif chat_id and status in {"left", "banned", "kicked", "chatmemberstatus.left", "chatmemberstatus.banned"}:
+        elif chat_id and status in {
+            "left",
+            "banned",
+            "kicked",
+            "chatmemberstatus.left",
+            "chatmemberstatus.banned",
+        }:
             ADMIN_GROUPS.discard(chat_id)
         return
 
@@ -258,11 +289,35 @@ async def on_chat_member_update(_, update: ChatMemberUpdated):
     if not new_m or not new_m.user:
         return
 
-    old_status = getattr(old_m.status, "value", str(old_m.status)).lower() if old_m and old_m.status else "left"
-    new_status = getattr(new_m.status, "value", str(new_m.status)).lower() if new_m and new_m.status else ""
+    old_status = (
+        getattr(old_m.status, "value", str(old_m.status)).lower()
+        if old_m and old_m.status
+        else "left"
+    )
+    new_status = (
+        getattr(new_m.status, "value", str(new_m.status)).lower()
+        if new_m.status
+        else ""
+    )
 
-    joined_set = {"member", "administrator", "creator", "chatmemberstatus.member", "chatmemberstatus.administrator", "chatmemberstatus.creator"}
-    left_set = {"left", "banned", "kicked", "restricted", "chatmemberstatus.left", "chatmemberstatus.banned", "chatmemberstatus.kicked", ""}
+    joined_set = {
+        "member",
+        "administrator",
+        "creator",
+        "chatmemberstatus.member",
+        "chatmemberstatus.administrator",
+        "chatmemberstatus.creator",
+    }
+    left_set = {
+        "left",
+        "banned",
+        "kicked",
+        "restricted",
+        "chatmemberstatus.left",
+        "chatmemberstatus.banned",
+        "chatmemberstatus.kicked",
+        "",
+    }
 
     if old_status in left_set and new_status in joined_set:
         user = new_m.user
