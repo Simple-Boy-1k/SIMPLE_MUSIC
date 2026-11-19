@@ -123,7 +123,7 @@ async def start_gp(client, message: Message, _):
 
 
 @app.on_message(filters.new_chat_members, group=-1)
-async def welcome(client, Message: Message):
+async def welcome(client, message: Message):
     for member in message.new_chat_members:
         try:
             language = await get_lang(message.chat.id)
