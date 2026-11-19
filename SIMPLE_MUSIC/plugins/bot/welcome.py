@@ -54,11 +54,11 @@ EMOJI_IDS = {
     "sparkle": "5235452773184589497",   # ✨ ke liye premium emoji ID
     "user": "5256143829672672750",      # 👤 ke liye premium emoji ID
     "link": "5870998024779468554",      # 🔗 ke liye premium emoji ID
-    "id": "5841276284155467413",        # 🆔 ke liye premium emoji ID
+    "id": "5429571366384842791",        # 🆔 ke liye premium emoji ID
     "home": "5841494459904168607",      # 🏠 ke liye premium emoji ID
-    "members": "6048540007017222074",   # 👥 ke liye premium emoji ID
-    "rules": "5837003105228558796",     # 📜 ke liye premium emoji ID
-    "bolt": "6269419691035332217",      # ⚡ ke liye premium emoji ID
+    "members": "5258513401784573443",   # 👥 ke liye premium emoji ID
+    "rules": "5258165702707125574",     # 📜 ke liye premium emoji ID
+    "bolt": "5258011929993026890",      # ⚡ ke liye premium emoji ID
 }
 
 
@@ -232,11 +232,11 @@ async def greet_new_member(_, member: ChatMemberUpdated):
 {e_sparkle} 𝙒 𝙀 𝙇 𝘾 𝙊 𝙈 𝙀   𝘽 𝘼 𝘽 𝙔 {e_sparkle}
 
 │
-├── {e_user} 𝗡𝗔𝗠𝗘 ➜ {user.first_name}
+├── {e_user} ⤹⌯ ƞ꯭꯭α꯭꯭𑄇꯭꯭є𝃵⤹ ➜ {user.first_name}
 │
-├── {e_link} 𝗨𝗦𝗘𝗥 ➜ {username}
+├── {e_link} 𝛍 𝛅 є ꝛ  ➜ {username}
 │
-├── {e_id} 𝗜𝗗 ➜ <code>{user.id}</code>
+├── {e_id}  𝛊 ' ∂  ➜ <code>{user.id}</code>
 │
 ├── {e_home} 𝗚𝗥𝗢𝗨𝗣 ➜ {group_name}
 │
