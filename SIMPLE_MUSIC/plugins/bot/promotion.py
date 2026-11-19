@@ -14,6 +14,7 @@ import config
 
 from strings import get_string
 from SIMPLE_MUSIC import app
+from SIMPLE_MUSIC.utils.inline.start import private_panel
 
 LOGGER = logging.getLogger(__name__)
 
@@ -30,14 +31,33 @@ def get_bot_username() -> str:
     return str(username).lstrip("@")
 
 
+def find_panel_url_by_text(_, target_text: str) -> str | None:
+    """private_panel(_) ke buttons mein se exact text match karke uska url variable uthata hai."""
+    if not target_text:
+        return None
+    try:
+        panel = private_panel(_)
+        for row in panel:
+            for button in row:
+                btn_text = getattr(button, "text", None)
+                btn_url = getattr(button, "url", None)
+                if btn_text == target_text and btn_url:
+                    return btn_url
+    except Exception:
+        LOGGER.exception("Failed to read URL from private_panel")
+    return None
+
+
 def make_promotion_keyboard(_):
-    """Auto PM ke liye 3 buttons (danger color mein):
-    - Add Me In Group
-    - My Network (pehle se set group link, bot username nahi)
-    - My Home (channel link)
+    """Auto PM ke liye sirf 3 buttons (danger color mein),
+    jo variable mein link set hai wahi use hoga.
     """
 
     bot_username = get_bot_username()
+
+    btn_network = _["S_B_2"] if "S_B_2" in _ else "My Network"
+    btn_home = _["S_B_6"] if "S_B_6" in _ else "My Home"
+    btn_add_group = _["S_B_3"] if "S_B_3" in _ else "✙ Add Me In Group ✙"
 
     add_group_url = (
         f"https://t.me/{bot_username}?startgroup=true"
@@ -45,25 +65,23 @@ def make_promotion_keyboard(_):
         else getattr(config, "SUPPORT_GROUP", "https://t.me/telegram")
     )
 
-    # My Network -> Jo group link pehle se set hai wahi (bot username nahi)
+    # My Network -> jo variable mein group link set hai wahi
     network_url = (
-        getattr(config, "SUPPORT_GROUP", None)
+        find_panel_url_by_text(_, btn_network)
+        or getattr(config, "SUPPORT_GROUP", None)
         or getattr(config, "NETWORK_URL", None)
         or getattr(config, "GROUP_LINK", None)
         or "https://t.me/telegram"
     )
 
-    # My Home -> Channel link
+    # My Home -> jo variable mein channel/home link set hai wahi
     home_url = (
-        getattr(config, "SUPPORT_CHANNEL", None)
+        find_panel_url_by_text(_, btn_home)
+        or getattr(config, "SUPPORT_CHANNEL", None)
         or getattr(config, "HOME_URL", None)
         or getattr(config, "CHANNEL_LINK", None)
-        or (f"https://t.me/{bot_username}" if bot_username else "https://t.me/telegram")
+        or "https://t.me/telegram"
     )
-
-    btn_add_group = _["S_B_3"] if "S_B_3" in _ else "✙ Add Me In Group ✙"
-    btn_network = _["S_B_2"] if "S_B_2" in _ else "My Network"
-    btn_home = _["S_B_6"] if "S_B_6" in _ else "My Home"
 
     keyboard = [
         [
