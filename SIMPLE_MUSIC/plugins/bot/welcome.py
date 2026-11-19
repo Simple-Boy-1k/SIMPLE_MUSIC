@@ -43,7 +43,7 @@ LOGGER = getLogger(__name__)
 WELCOME_VIDEO_URL = "https://files.catbox.moe/9iom66.mp4"
 
 # OWNER CONFIGURATION
-OWNER_USERNAME = "Simple_Boy_1k"
+OWNER_USERNAME = "Sarkar_owner1k"
 
 # ⏱️ AUTO DELETE TIME (IN SECONDS)
 AUTO_DELETE_SECONDS = 10
@@ -51,14 +51,14 @@ AUTO_DELETE_SECONDS = 10
 # 🌟 PREMIUM EMOJI IDs CONFIGURATION (Apni Custom/Premium Emoji IDs yahan daalein)
 # Example: "sparkle": "5368324170671202286"
 EMOJI_IDS = {
-    "sparkle": "",   # ✨ ke liye premium emoji ID
+    "sparkle": "5235452773184589497",   # ✨ ke liye premium emoji ID
     "user": "5256143829672672750",      # 👤 ke liye premium emoji ID
     "link": "5870998024779468554",      # 🔗 ke liye premium emoji ID
     "id": "5841276284155467413",        # 🆔 ke liye premium emoji ID
     "home": "5841494459904168607",      # 🏠 ke liye premium emoji ID
     "members": "6048540007017222074",   # 👥 ke liye premium emoji ID
-    "rules": "",     # 📜 ke liye premium emoji ID
-    "bolt": "",      # ⚡ ke liye premium emoji ID
+    "rules": "5837003105228558796",     # 📜 ke liye premium emoji ID
+    "bolt": "6269419691035332217",      # ⚡ ke liye premium emoji ID
 }
 
 
