@@ -231,23 +231,17 @@ async def greet_new_member(_, member: ChatMemberUpdated):
         caption_text = f"""<blockquote>
 {e_sparkle} 𝙒 𝙀 𝙇 𝘾 𝙊 𝙈 𝙀   𝘽 𝘼 𝘽 𝙔 {e_sparkle}
 
-├── {e_user} ➜ {user.first_name}
+├─ {e_user} ➜ {user.first_name}
 │
-├── {e_link} ➜ {username}
+├─ {e_link} ➜ {username}
 │
-├── {e_id}  ➜ <code>{user.id}</code>
+├─ {e_id}  ➜ <code>{user.id}</code>
 │
-├── {e_home} ➜ {group_name}
+├─ {e_home} ➜ {group_name}
 │
-├── {e_members} ➜ {count}
+├─ {e_members} ➜ {count}
 │
-├── {e_rules} ɢ꯭ɾ꯭ͥⱺ꯭ꭎ꯭ᴘ꯭ ꯭ɾ꯭ͥꭎ꯭ʟ꯭є꯭𝛅
-│
-├── {e_bolt} ʀᴇꜱᴘᴇᴄᴛ ᴀʟʟ ᴍᴇᴍʙᴇʀꜱ.
-├── {e_bolt} ɴᴏ ꜱᴘᴀᴍ ᴏʀ 18+ ᴄᴏɴᴛᴇɴᴛ.
-├── {e_bolt} ᴇɴᴊᴏʏ ᴛʜᴇ ᴍᴜꜱɪᴄ & ᴠɪʙᴇ!
-│
-└── {e_bolt} Ｓ⋏ ᰻⃪᱂ །༨ ⋏ ᰻⃪᱂ {e_bolt}</blockquote>"""
+└─ {e_bolt}{e_bolt}</blockquote>"""
 
         # Inline buttons
         buttons = InlineKeyboardMarkup(
