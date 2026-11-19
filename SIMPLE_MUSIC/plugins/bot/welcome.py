@@ -18,6 +18,7 @@ from pyrogram.types import (
     ChatMemberUpdated,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    Message,
 )
 from typing import Union, Optional
 import random
@@ -43,6 +44,38 @@ WELCOME_VIDEO_URL = "https://files.catbox.moe/9iom66.mp4"
 
 # OWNER CONFIGURATION
 OWNER_USERNAME = "Simple_Boy_1k"
+
+# ⏱️ AUTO DELETE TIME (IN SECONDS)
+AUTO_DELETE_SECONDS = 10
+
+# 🌟 PREMIUM EMOJI IDs CONFIGURATION (Apni Custom/Premium Emoji IDs yahan daalein)
+# Example: "sparkle": "5368324170671202286"
+EMOJI_IDS = {
+    "sparkle": "",   # ✨ ke liye premium emoji ID
+    "user": "5256143829672672750",      # 👤 ke liye premium emoji ID
+    "link": "5870998024779468554",      # 🔗 ke liye premium emoji ID
+    "id": "5841276284155467413",        # 🆔 ke liye premium emoji ID
+    "home": "5841494459904168607",      # 🏠 ke liye premium emoji ID
+    "members": "6048540007017222074",   # 👥 ke liye premium emoji ID
+    "rules": "",     # 📜 ke liye premium emoji ID
+    "bolt": "",      # ⚡ ke liye premium emoji ID
+}
+
+
+def p_emoji(key: str, fallback: str) -> str:
+    """Agar EMOJI_IDS[key] mein ID dali hai toh <emoji id='...'>fallback</emoji> return karega."""
+    emoji_id = str(EMOJI_IDS.get(key, "")).strip()
+    if emoji_id:
+        return f'<emoji id="{emoji_id}">{fallback}</emoji>'
+    return fallback
+
+
+async def _auto_delete_message(msg: Message, delay: int):
+    await asyncio.sleep(delay)
+    try:
+        await msg.delete()
+    except Exception:
+        pass
 
 
 # --------------------------------------------------------------------------------- #
@@ -115,7 +148,7 @@ async def auto_state(_, message):
             return await message.reply_text(
                 f"**ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ɪs ᴀʟʀᴇᴀᴅʏ ᴅɪsᴀʙʟᴇᴅ ɪɴ {message.chat.title}!**"
             )
-        
+
         await wlcm.rm_wlcm(chat_id)
         await message.reply_text(
             f"**ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ᴅɪsᴀʙʟᴇᴅ ɪɴ {message.chat.title}!**"
@@ -126,7 +159,7 @@ async def auto_state(_, message):
             return await message.reply_text(
                 "**ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ɪs ᴀʟʀᴇᴀᴅʏ ᴇɴᴀʙʟᴇᴅ!**"
             )
-        
+
         await wlcm.add_wlcm(chat_id)
         await message.reply_text(
             f"**ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ᴇɴᴀʙʟᴇᴅ ɪɴ {message.chat.title}!**"
@@ -166,7 +199,7 @@ async def greet_new_member(_, member: ChatMemberUpdated):
         return
 
     user = member.new_chat_member.user
-    
+
     # Bot accounts ko skip karein
     if user.is_bot:
         return
@@ -185,28 +218,37 @@ async def greet_new_member(_, member: ChatMemberUpdated):
             else "Not Set"
         )
 
-        # Welcome caption
-        caption_text = f"""
-        <blockquote>
-✨ 𝙒 𝙀 𝙇 𝘾 𝙊 𝙈 𝙀   𝘽 𝘼 𝘽 𝙔 ✨
+        e_sparkle = p_emoji("sparkle", "✨")
+        e_user = p_emoji("user", "👤")
+        e_link = p_emoji("link", "🔗")
+        e_id = p_emoji("id", "🆔")
+        e_home = p_emoji("home", "🏠")
+        e_members = p_emoji("members", "👥")
+        e_rules = p_emoji("rules", "📜")
+        e_bolt = p_emoji("bolt", "⚡")
+
+        # Welcome caption (HTML parse mode ke saath blockquote + premium emoji tags)
+        caption_text = f"""<blockquote>
+{e_sparkle} 𝙒 𝙀 𝙇 𝘾 𝙊 𝙈 𝙀   𝘽 𝘼 𝘽 𝙔 {e_sparkle}
 
 │
-├── 👤 𝗡𝗔𝗠𝗘 ➜ {user.first_name}
+├── {e_user} 𝗡𝗔𝗠𝗘 ➜ {user.first_name}
 │
-├── 🔗 𝗨𝗦𝗘𝗥 ➜ {username}
+├── {e_link} 𝗨𝗦𝗘𝗥 ➜ {username}
 │
-├── 🏠 𝗚𝗥𝗢𝗨𝗣 ➜ {group_name}
+├── {e_id} 𝗜𝗗 ➜ <code>{user.id}</code>
 │
-├── 👥 𝗠𝗘𝗠𝗕𝗘𝗥𝗦 ➜ {count}
+├── {e_home} 𝗚𝗥𝗢𝗨𝗣 ➜ {group_name}
 │
-├── 📜 𝗚𝗥𝗢𝗨𝗣 𝗥𝗨𝗟𝗘𝗦
+├── {e_members} 𝗠𝗘𝗠𝗕𝗘𝗥𝗦 ➜ {count}
 │
-├── ⚡ ʀᴇꜱᴘᴇᴄᴛ ᴀʟʟ ᴍᴇᴍʙᴇʀꜱ.
-├── ⚡ ɴᴏ ꜱᴘᴀᴍ ᴏʀ 18+ ᴄᴏɴᴛᴇɴᴛ.
-├── ⚡ ᴇɴᴊᴏʏ ᴛʜᴇ ᴍᴜꜱɪᴄ & ᴠɪʙᴇ!
+├── {e_rules} 𝗚𝗥𝗢𝗨𝗣 𝗥𝗨𝗟𝗘𝗦
 │
-└── ⚡ 𝗣𝗢𝗪𝗘𝗥𝗘𝗗 𝗕𝗬 𝗦𝗜𝗠𝗣𝗟𝗘 ⚡ </blockquote>
-"""
+├── {e_bolt} ʀᴇꜱᴘᴇᴄᴛ ᴀʟʟ ᴍᴇᴍʙᴇʀꜱ.
+├── {e_bolt} ɴᴏ ꜱᴘᴀᴍ ᴏʀ 18+ ᴄᴏɴᴛᴇɴᴛ.
+├── {e_bolt} ᴇɴᴊᴏʏ ᴛʜᴇ ᴍᴜꜱɪᴄ & ᴠɪʙᴇ!
+│
+└── {e_bolt} 𝗣𝗢𝗪𝗘𝗥𝗘𝗗 𝗕𝗬 𝗦𝗜𝗠𝗣𝗟𝗘 {e_bolt}</blockquote>"""
 
         # Inline buttons
         buttons = InlineKeyboardMarkup(
@@ -227,12 +269,17 @@ async def greet_new_member(_, member: ChatMemberUpdated):
         )
 
         # Send welcome video with caption and buttons
-        await app.send_video(
+        sent_msg = await app.send_video(
             chat_id=chat_id,
             video=WELCOME_VIDEO_URL,
             caption=caption_text,
+            parse_mode=ParseMode.HTML,
             reply_markup=buttons,
         )
+
+        # 10 seconds baad auto-delete
+        if sent_msg:
+            asyncio.create_task(_auto_delete_message(sent_msg, AUTO_DELETE_SECONDS))
 
     except Exception:
         LOGGER.exception(
