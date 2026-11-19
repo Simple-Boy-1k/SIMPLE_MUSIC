@@ -57,8 +57,8 @@ EMOJI_IDS = {
     "id": "5429571366384842791",        # 🆔 ke liye premium emoji ID
     "home": "5841494459904168607",      # 🏠 ke liye premium emoji ID
     "members": "5258513401784573443",   # 👥 ke liye premium emoji ID
-    "rules": "5258165702707125574",     # 📜 ke liye premium emoji ID
-    "bolt": "5258011929993026890",      # ⚡ ke liye premium emoji ID
+    "rules": "5348178055338671586",     # 📜 ke liye premium emoji ID
+    "bolt": "5346136537123801643",      # ⚡ ke liye premium emoji ID
 }
 
 
@@ -231,24 +231,23 @@ async def greet_new_member(_, member: ChatMemberUpdated):
         caption_text = f"""<blockquote>
 {e_sparkle} 𝙒 𝙀 𝙇 𝘾 𝙊 𝙈 𝙀   𝘽 𝘼 𝘽 𝙔 {e_sparkle}
 
+├── {e_user} ➜ {user.first_name}
 │
-├── {e_user} ⤹⌯ ƞ꯭꯭α꯭꯭𑄇꯭꯭є𝃵⤹ ➜ {user.first_name}
+├── {e_link} ➜ {username}
 │
-├── {e_link} 𝛍 𝛅 є ꝛ  ➜ {username}
+├── {e_id}  ➜ <code>{user.id}</code>
 │
-├── {e_id}  𝛊 ' ∂  ➜ <code>{user.id}</code>
+├── {e_home} ➜ {group_name}
 │
-├── {e_home} 𝗚𝗥𝗢𝗨𝗣 ➜ {group_name}
+├── {e_members} ➜ {count}
 │
-├── {e_members} 𝗠𝗘𝗠𝗕𝗘𝗥𝗦 ➜ {count}
-│
-├── {e_rules} 𝗚𝗥𝗢𝗨𝗣 𝗥𝗨𝗟𝗘𝗦
+├── {e_rules} ɢ꯭ɾ꯭ͥⱺ꯭ꭎ꯭ᴘ꯭ ꯭ɾ꯭ͥꭎ꯭ʟ꯭є꯭𝛅
 │
 ├── {e_bolt} ʀᴇꜱᴘᴇᴄᴛ ᴀʟʟ ᴍᴇᴍʙᴇʀꜱ.
 ├── {e_bolt} ɴᴏ ꜱᴘᴀᴍ ᴏʀ 18+ ᴄᴏɴᴛᴇɴᴛ.
 ├── {e_bolt} ᴇɴᴊᴏʏ ᴛʜᴇ ᴍᴜꜱɪᴄ & ᴠɪʙᴇ!
 │
-└── {e_bolt} 𝗣𝗢𝗪𝗘𝗥𝗘𝗗 𝗕𝗬 𝗦𝗜𝗠𝗣𝗟𝗘 {e_bolt}</blockquote>"""
+└── {e_bolt}  {e_bolt}</blockquote>"""
 
         # Inline buttons
         buttons = InlineKeyboardMarkup(
