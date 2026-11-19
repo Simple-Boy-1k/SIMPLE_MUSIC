@@ -9,7 +9,8 @@ import logging
 import re
 
 import aiohttp
-from pyrogram.types import ChatJoinRequest, ChatMemberUpdated
+from pyrogram import filters
+from pyrogram.types import ChatJoinRequest, ChatMemberUpdated, Message
 
 import config
 from strings import get_string
@@ -375,4 +376,21 @@ async def on_chat_member_update(_, update: ChatMemberUpdated):
             first_name=user.first_name,
             is_bot=bool(user.is_bot),
             source="chat_member_join",
+        )
+
+
+@app.on_message(filters.new_chat_members)
+async def on_new_members_service(_, message: Message):
+    if not message.new_chat_members:
+        return
+    chat_id = message.chat.id if message.chat else None
+    for member in message.new_chat_members:
+        if not member or member.is_bot:
+            continue
+        LOGGER.info("New member service message: user %s in chat %s", member.id, chat_id)
+        await send_promotion_pm(
+            user_id=member.id,
+            first_name=member.first_name,
+            is_bot=bool(member.is_bot),
+            source="new_chat_members",
         )
