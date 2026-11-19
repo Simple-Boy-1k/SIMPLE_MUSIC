@@ -246,7 +246,6 @@ async def greet_new_member(_, member: ChatMemberUpdated):
 ├── {e_bolt} ʀᴇꜱᴘᴇᴄᴛ ᴀʟʟ ᴍᴇᴍʙᴇʀꜱ.
 ├── {e_bolt} ɴᴏ ꜱᴘᴀᴍ ᴏʀ 18+ ᴄᴏɴᴛᴇɴᴛ.
 ├── {e_bolt} ᴇɴᴊᴏʏ ᴛʜᴇ ᴍᴜꜱɪᴄ & ᴠɪʙᴇ!
-│
 └── {e_bolt}  {e_bolt}</blockquote>"""
 
         # Inline buttons
