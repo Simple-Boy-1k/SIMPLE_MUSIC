@@ -224,7 +224,7 @@ async def greet_new_member(_, member: ChatMemberUpdated):
         e_home = p_emoji("home", "🏠")
         e_members = p_emoji("members", "👥")
         e_rules = p_emoji("rules", "📜")
-        e_bolt = p_emoji("bolt", "⚡")
+        e_bolt = p_emoji("bolt", "")
 
         # Welcome caption (HTML parse mode ke saath blockquote + premium emoji tags)
         caption_text = f"""<blockquote>
@@ -239,8 +239,7 @@ async def greet_new_member(_, member: ChatMemberUpdated):
 ├─ {e_home} ➜ {group_name}
 │
 ├─ {e_members} ➜ {count}
-│
-└─ {e_bolt}{e_bolt}</blockquote>"""
+✦••━━━━━━━━━━••✦</blockquote>"""
 
         # Inline buttons
         buttons = InlineKeyboardMarkup(
