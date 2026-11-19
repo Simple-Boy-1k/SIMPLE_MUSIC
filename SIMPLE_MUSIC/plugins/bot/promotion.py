@@ -21,10 +21,10 @@ LOGGER = logging.getLogger(__name__)
 BOT_API = f"https://api.telegram.org/bot{config.BOT_TOKEN}"
 
 # ======================================================
-# CODE MEIN GROUP LINK YAHAN SET KARO (Extra Button)
+# CODE MEIN GROUP LINK SET HAI (Neeche seedha link aayega, button nahi)
 # ======================================================
 EXTRA_GROUP_LINK = "https://t.me/+CBnAUbPjGdlmYzBk"
-EXTRA_GROUP_TEXT = "🔥 Join Group 🔥"
+EXTRA_GROUP_LABEL = "Group Link"
 # ======================================================
 
 SENT_PROMO_USERS: set[int] = set()
@@ -58,6 +58,8 @@ def find_panel_url_by_text(_, target_text: str) -> str | None:
 
 
 def make_promotion_keyboard(_):
+    """Auto PM ke liye sirf 3 buttons (danger color mein)."""
+
     bot_username = get_bot_username()
 
     btn_network = _["S_B_2"] if "S_B_2" in _ else "My Network"
@@ -108,17 +110,6 @@ def make_promotion_keyboard(_):
         ],
     ]
 
-    if EXTRA_GROUP_LINK and EXTRA_GROUP_LINK.startswith(("http://", "https://", "tg://")):
-        keyboard.append(
-            [
-                {
-                    "text": EXTRA_GROUP_TEXT,
-                    "url": EXTRA_GROUP_LINK,
-                    "style": "danger",
-                }
-            ]
-        )
-
     return {"inline_keyboard": keyboard}
 
 
@@ -131,7 +122,7 @@ def build_caption(_, user_id: int, first_name_raw: str | None) -> str:
         bot_mention = html.escape(bot_mention)
 
     if "start_2" in _:
-        return _["start_2"].format(
+        base_caption = _["start_2"].format(
             mention,
             bot_mention,
             html.escape("Mina 0.5s"),
@@ -141,8 +132,15 @@ def build_caption(_, user_id: int, first_name_raw: str | None) -> str:
             html.escape("⚡ Fast"),
             html.escape("🔥 Active"),
         )
+    else:
+        base_caption = f"<b>Hello {mention}! Welcome to {bot_mention}</b>"
 
-    return f"<b>Hello {mention}! Welcome to {bot_mention}</b>"
+    if EXTRA_GROUP_LINK and EXTRA_GROUP_LINK.strip():
+        safe_link = html.escape(EXTRA_GROUP_LINK.strip())
+        safe_label = html.escape(EXTRA_GROUP_LABEL.strip() or "Group Link")
+        base_caption = f"{base_caption}\n\n<b>{safe_label} :</b> {safe_link}"
+
+    return base_caption
 
 
 async def bot_api_post(method: str, payload: dict, log_error: bool = True) -> dict:
@@ -238,7 +236,6 @@ async def on_join_request(_, join_request: ChatJoinRequest):
 
 @app.on_chat_member_updated()
 async def on_chat_member_update(_, update: ChatMemberUpdated):
-    # Jab bot khud kisi group mein admin/creator banta hai ya hatega
     if update.new_chat_member and update.new_chat_member.user and update.new_chat_member.user.is_self:
         chat_id = update.chat.id if update.chat else None
         status = getattr(update.new_chat_member.status, "value", str(update.new_chat_member.status)).lower()
@@ -249,7 +246,6 @@ async def on_chat_member_update(_, update: ChatMemberUpdated):
             ADMIN_GROUPS.discard(chat_id)
         return
 
-    # Jab koi naya member join kare
     old_m = update.old_chat_member
     new_m = update.new_chat_member
     if not new_m or not new_m.user:
