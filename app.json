@@ -34,7 +34,7 @@
     },
     "OWNER_ID": {
       "description": "The user id of user whom you would like to add as OWNER.",
-      "value": "8885285219",
+      "value": "8056191996",
       "required": true
     },
     "STRING_SESSION": {
@@ -64,17 +64,17 @@
     },
     "LOGGER_ID": {
       "description": "Your Log Group ID, add your bot and promote as an admin with full rights!.",
-      "value": "-1003455128274",
+      "value": "-1004420042087",
       "required": true
     },
     "SUPPORT_CHAT": {
       "description": "Your support group link.",
-      "value": "https://t.me/+7jFEQBjWNUwzNjMx",
+      "value": "https://t.me/+CBnAUbPjGdlmYzBk",
       "required": false
     },
     "SUPPORT_CHANNEL": {
       "description": "Your support channel link.",
-      "value": "https://t.me/musicsupport2",
+      "value": "https://t.me/Simplexmusic",
       "required": false
     },
     "START_IMG_URL": {
