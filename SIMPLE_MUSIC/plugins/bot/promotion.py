@@ -1,36 +1,111 @@
 
 # -----------------------------------------------
-# SIMPLE MUSIC - AUTO JOIN REQUEST PROMOTION
+# SIMPLE MUSIC - AUTO PM PROMOTION
+# Developed by: Simple Boy
 # -----------------------------------------------
 
 import asyncio
-from logging import getLogger
+import html
+import json
+import logging
 
-from pyrogram.handlers import ChatJoinRequestHandler
-
+import aiohttp
 import config
-from SIMPLE_MUSIC import app
-from config import START_IMG_URL
-from SIMPLE_MUSIC.utils.inline import private_panel
+
 from strings import get_string
+from SIMPLE_MUSIC import app
+from SIMPLE_MUSIC.utils.inline.start import private_panel
 
-LOGGER = getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
+
+BOT_API = f"https://api.telegram.org/bot{config.BOT_TOKEN}"
 
 
-async def auto_promotion(client, request):
+def make_keyboard(_):
+    """Reuse existing /start inline buttons."""
+
+    panel = private_panel(_)
+    keyboard = []
+
+    for row in panel:
+        new_row = []
+
+        for button in row:
+            item = {"text": button.text}
+
+            # Owner button: convert user_id button to profile URL
+            user_id = getattr(button, "user_id", None)
+
+            if user_id:
+                username = getattr(config, "OWNER_USERNAME", "")
+                if username:
+                    item["url"] = f"https://t.me/{username.lstrip('@')}"
+                else:
+                    item["url"] = f"tg://user?id={user_id}"
+
+            elif getattr(button, "url", None):
+                item["url"] = button.url
+
+            elif getattr(button, "callback_data", None):
+                data = button.callback_data
+                if isinstance(data, bytes):
+                    data = data.decode("utf-8")
+                item["callback_data"] = str(data)
+
+            else:
+                continue
+
+            new_row.append(item)
+
+        if new_row:
+            keyboard.append(new_row)
+
+    return {"inline_keyboard": keyboard}
+
+
+async def api_call(session, method, data):
+    url = f"{BOT_API}/{method}"
+
+    async with session.post(
+        url,
+        json=data,
+        timeout=aiohttp.ClientTimeout(total=35)
+    ) as response:
+        result = await response.json()
+
+        if not result.get("ok"):
+            LOGGER.error(
+                "Telegram API %s error: %s",
+                method,
+                result
+            )
+
+        return result
+
+
+async def send_promotion(session, update):
+    request = update.get("chat_join_request", {})
+
+    user_chat_id = request.get("user_chat_id")
+    user = request.get("from", {})
+
+    if not user_chat_id:
+        LOGGER.warning("Join request has no user_chat_id")
+        return
+
     try:
-        # Temporary private chat ID from Join Request
-        user_chat_id = request.user_chat_id
-
-        # Existing bot language strings
         _ = get_string("en")
 
-        # Existing /start buttons and their styles
-        keyboard = private_panel(_)
+        first_name = html.escape(user.get("first_name", "Friend"))
+        user_id = user.get("id")
 
-        # Same caption as existing /start message
+        mention = (
+            f'<a href="tg://user?id={user_id}">'
+            f'{first_name}</a>'
+        )
+
         caption = _["start_2"].format(
-            request.from_user.mention,
+            mention,
             app.mention,
             "Mina 0.5s",
             "0.2 GB",
@@ -40,23 +115,107 @@ async def auto_promotion(client, request):
             "🔥 Active"
         )
 
-        # Same DP and design as existing /start
-        await client.send_photo(
-            chat_id=user_chat_id,
-            photo=START_IMG_URL,
-            caption=caption,
-            reply_markup=keyboard,
+        data = {
+            "chat_id": user_chat_id,
+            "photo": config.START_IMG_URL,
+            "caption": caption,
+            "parse_mode": "HTML",
+            "reply_markup": make_keyboard(_)
+        }
+
+        result = await api_call(
+            session,
+            "sendPhoto",
+            data
         )
 
-        LOGGER.info(
-            "Promotion sent to join request user: %s",
-            request.from_user.id
-        )
+        if result.get("ok"):
+            LOGGER.info(
+                "Promotion sent to user %s",
+                user_id
+            )
 
     except Exception:
-        LOGGER.exception("Auto promotion failed")
+        LOGGER.exception("Promotion sending failed")
 
 
-app.add_handler(
-    ChatJoinRequestHandler(auto_promotion)
+async def promotion_listener():
+    offset = None
+
+    timeout = aiohttp.ClientTimeout(total=40)
+
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+
+        # Check whether webhook is active
+        try:
+            info = await api_call(
+                session,
+                "getWebhookInfo",
+                {}
+            )
+
+            if info.get("ok") and info["result"].get("url"):
+                LOGGER.error(
+                    "Promotion listener stopped: "
+                    "Telegram webhook is active. "
+                    "getUpdates cannot run with a webhook."
+                )
+                return
+
+        except Exception:
+            LOGGER.exception("Webhook check failed")
+            return
+
+        LOGGER.info("Auto Promotion Listener Started")
+
+        while True:
+            try:
+                params = {
+                    "timeout": 25,
+                    "allowed_updates": json.dumps(
+                        ["chat_join_request"]
+                    )
+                }
+
+                if offset is not None:
+                    params["offset"] = offset
+
+                async with session.get(
+                    f"{BOT_API}/getUpdates",
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=35)
+                ) as response:
+
+                    result = await response.json()
+
+                if not result.get("ok"):
+                    LOGGER.error(
+                        "getUpdates error: %s",
+                        result
+                    )
+                    await asyncio.sleep(5)
+                    continue
+
+                for update in result.get("result", []):
+                    offset = update["update_id"] + 1
+
+                    if "chat_join_request" in update:
+                        await send_promotion(
+                            session,
+                            update
+                        )
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception:
+                LOGGER.exception(
+                    "Promotion listener error"
+                )
+                await asyncio.sleep(5)
+
+
+# Start listener when plugin loads
+asyncio.get_running_loop().create_task(
+    promotion_listener()
 )
