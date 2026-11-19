@@ -27,7 +27,6 @@ EXTRA_GROUP_LINK = "https://t.me/+CBnAUbPjGdlmYzBk"
 EXTRA_GROUP_TEXT = "🔥 Join Group 🔥"
 # ======================================================
 
-# Ek session mein ek hi user ko baar-baar PM na jaye isliye track set
 SENT_PROMO_USERS: set[int] = set()
 ADMIN_GROUPS: set[int] = set()
 
@@ -43,7 +42,7 @@ def get_bot_username() -> str:
 
 
 def find_panel_url_by_text(_, target_text: str) -> str | None:
-    """private_panel(_) ke buttons mein se exact text match karke uska url variable uthata hai."""
+    """private_panel(_) ke buttons mein se exact text match karke uska url uthata hai."""
     if not target_text:
         return None
     try:
@@ -74,7 +73,6 @@ def make_promotion_keyboard(_):
         else getattr(config, "SUPPORT_GROUP", "https://t.me/telegram")
     )
 
-    # My Network -> jo variable mein group link set hai wahi
     network_url = (
         find_panel_url_by_text(_, btn_network)
         or getattr(config, "SUPPORT_GROUP", None)
@@ -83,7 +81,6 @@ def make_promotion_keyboard(_):
         or "https://t.me/telegram"
     )
 
-    # My Home -> jo variable mein channel/home link set hai wahi
     home_url = (
         find_panel_url_by_text(_, btn_home)
         or getattr(config, "SUPPORT_CHANNEL", None)
@@ -114,7 +111,6 @@ def make_promotion_keyboard(_):
         ],
     ]
 
-    # Neeche extra group button jo code ke EXTRA_GROUP_LINK se aayega
     if EXTRA_GROUP_LINK and EXTRA_GROUP_LINK.startswith(("http://", "https://", "tg://")):
         keyboard.append(
             [
@@ -129,13 +125,13 @@ def make_promotion_keyboard(_):
     return {"inline_keyboard": keyboard}
 
 
-async def api_call(session, method, data, log_error=True):
+async def api_call(session, method, data=None, log_error=True):
     url = f"{BOT_API}/{method}"
 
     async with session.post(
         url,
-        json=data,
-        timeout=aiohttp.ClientTimeout(total=35)
+        json=data or {},
+        timeout=aiohttp.ClientTimeout(total=35),
     ) as response:
         result = await response.json()
 
@@ -143,10 +139,36 @@ async def api_call(session, method, data, log_error=True):
             LOGGER.error(
                 "Telegram API %s error: %s",
                 method,
-                result
+                result,
             )
 
         return result
+
+
+def build_caption(_, user: dict) -> str:
+    raw_first_name = user.get("first_name") or "Friend"
+    first_name = html.escape(str(raw_first_name))
+    user_id = user.get("id")
+
+    mention = f'<a href="tg://user?id={user_id}">{first_name}</a>'
+
+    bot_mention = str(getattr(app, "mention", "") or "")
+    if not bot_mention.startswith("<"):
+        bot_mention = html.escape(bot_mention)
+
+    if "start_2" in _:
+        return _["start_2"].format(
+            mention,
+            bot_mention,
+            html.escape("Mina 0.5s"),
+            html.escape("0.2 GB"),
+            html.escape("1.2%"),
+            html.escape("14%"),
+            html.escape("⚡ Fast"),
+            html.escape("🔥 Active"),
+        )
+
+    return f"<b>Hello {mention}! Welcome to {bot_mention}</b>"
 
 
 async def send_promotion_to_user(session, user: dict, source: str = "promo"):
@@ -163,80 +185,56 @@ async def send_promotion_to_user(session, user: dict, source: str = "promo"):
 
     try:
         _ = get_string("en")
-
-        raw_first_name = user.get("first_name") or "Friend"
-        first_name = html.escape(str(raw_first_name))
-
-        mention = (
-            f'<a href="tg://user?id={user_id}">'
-            f'{first_name}</a>'
-        )
-
-        bot_mention = str(getattr(app, "mention", "") or "")
-        if not bot_mention.startswith("<"):
-            bot_mention = html.escape(bot_mention)
-
-        caption = _["start_2"].format(
-            mention,
-            bot_mention,
-            html.escape("Mina 0.5s"),
-            html.escape("0.2 GB"),
-            html.escape("1.2%"),
-            html.escape("14%"),
-            html.escape("⚡ Fast"),
-            html.escape("🔥 Active"),
-        )
-
+        caption = build_caption(_, user)
         reply_markup = make_promotion_keyboard(_)
 
-        data = {
-            "chat_id": user_id,
-            "photo": config.START_IMG_URL,
-            "caption": caption,
-            "parse_mode": "HTML",
-            "reply_markup": reply_markup,
-        }
+        photo = getattr(config, "START_IMG_URL", None)
 
-        result = await api_call(
-            session,
-            "sendPhoto",
-            data,
-            log_error=False,
-        )
+        if photo:
+            data = {
+                "chat_id": user_id,
+                "photo": photo,
+                "caption": caption,
+                "parse_mode": "HTML",
+                "reply_markup": reply_markup,
+            }
+            result = await api_call(session, "sendPhoto", data, log_error=False)
 
-        if not result.get("ok"):
-            desc = str(result.get("description", ""))
-            if "can't parse entities" in desc:
-                fallback_data = {
-                    "chat_id": user_id,
-                    "photo": config.START_IMG_URL,
-                    "caption": strip_html_tags(caption),
-                    "reply_markup": reply_markup,
-                }
-                result = await api_call(
-                    session,
-                    "sendPhoto",
-                    fallback_data,
-                    log_error=True,
-                )
-            elif "bot can't initiate conversation" in desc or "blocked" in desc.lower():
-                LOGGER.info(
-                    "Cannot DM user %s (%s): %s",
-                    user_id,
-                    source,
-                    desc,
-                )
-                return
-            else:
-                LOGGER.error("Telegram API sendPhoto error: %s", result)
+            if not result.get("ok"):
+                desc = str(result.get("description", ""))
+                if "can't parse entities" in desc:
+                    fallback_data = {
+                        "chat_id": user_id,
+                        "photo": photo,
+                        "caption": strip_html_tags(caption),
+                        "reply_markup": reply_markup,
+                    }
+                    result = await api_call(session, "sendPhoto", fallback_data, log_error=False)
+
+                if not result.get("ok"):
+                    new_desc = str(result.get("description", ""))
+                    if "bot can't initiate conversation" in new_desc.lower() or "blocked" in new_desc.lower():
+                        LOGGER.warning("User %s hasn't started bot or blocked PM (%s)", user_id, source)
+                        return
+                    # Agar photo URL invalid ho toh text message fallback try karo
+                    msg_data = {
+                        "chat_id": user_id,
+                        "text": strip_html_tags(caption),
+                        "reply_markup": reply_markup,
+                    }
+                    result = await api_call(session, "sendMessage", msg_data, log_error=True)
+        else:
+            msg_data = {
+                "chat_id": user_id,
+                "text": caption,
+                "parse_mode": "HTML",
+                "reply_markup": reply_markup,
+            }
+            result = await api_call(session, "sendMessage", msg_data, log_error=True)
 
         if result.get("ok"):
             SENT_PROMO_USERS.add(user_id)
-            LOGGER.info(
-                "Promotion sent to user %s via %s",
-                user_id,
-                source,
-            )
+            LOGGER.info("Promotion sent to user %s via %s", user_id, source)
 
     except Exception:
         LOGGER.exception("Promotion sending failed")
@@ -245,6 +243,7 @@ async def send_promotion_to_user(session, user: dict, source: str = "promo"):
 async def handle_join_request(session, update: dict):
     request = update.get("chat_join_request", {})
     user = request.get("from", {})
+    LOGGER.info("Join request from user %s in chat %s", user.get("id"), request.get("chat", {}).get("id"))
     await send_promotion_to_user(session, user, source="chat_join_request")
 
 
@@ -261,6 +260,7 @@ async def handle_chat_member_update(session, update: dict):
 
     if old_status in left_statuses and new_status in joined_statuses:
         user = new_member.get("user") or cm.get("from", {})
+        LOGGER.info("Member joined user %s in chat %s", user.get("id"), cm.get("chat", {}).get("id"))
         await send_promotion_to_user(session, user, source="chat_member_join")
 
 
@@ -286,30 +286,16 @@ async def handle_my_chat_member_update(update: dict):
 
 async def promotion_listener():
     offset = None
-
     timeout = aiohttp.ClientTimeout(total=40)
 
     async with aiohttp.ClientSession(timeout=timeout) as session:
-
-        # Check whether webhook is active
         try:
-            info = await api_call(
-                session,
-                "getWebhookInfo",
-                {}
-            )
-
-            if info.get("ok") and info["result"].get("url"):
-                LOGGER.error(
-                    "Promotion listener stopped: "
-                    "Telegram webhook is active. "
-                    "getUpdates cannot run with a webhook."
-                )
-                return
-
+            info = await api_call(session, "getWebhookInfo", {})
+            if info.get("ok") and info.get("result", {}).get("url"):
+                LOGGER.warning("Webhook detected; deleting webhook so getUpdates can run...")
+                await api_call(session, "deleteWebhook", {"drop_pending_updates": False})
         except Exception:
-            LOGGER.exception("Webhook check failed")
-            return
+            LOGGER.exception("Webhook check/delete failed")
 
         LOGGER.info("Auto Promotion Listener Started")
 
@@ -323,7 +309,7 @@ async def promotion_listener():
                             "chat_member",
                             "my_chat_member",
                         ]
-                    )
+                    ),
                 }
 
                 if offset is not None:
@@ -332,16 +318,12 @@ async def promotion_listener():
                 async with session.get(
                     f"{BOT_API}/getUpdates",
                     params=params,
-                    timeout=aiohttp.ClientTimeout(total=35)
+                    timeout=aiohttp.ClientTimeout(total=35),
                 ) as response:
-
                     result = await response.json()
 
                 if not result.get("ok"):
-                    LOGGER.error(
-                        "getUpdates error: %s",
-                        result
-                    )
+                    LOGGER.error("getUpdates error: %s", result)
                     await asyncio.sleep(5)
                     continue
 
@@ -359,13 +341,16 @@ async def promotion_listener():
                 raise
 
             except Exception:
-                LOGGER.exception(
-                    "Promotion listener error"
-                )
+                LOGGER.exception("Promotion listener error")
                 await asyncio.sleep(5)
 
 
-# Start listener when plugin loads
-asyncio.get_running_loop().create_task(
-    promotion_listener()
-)
+def start_promotion_task():
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(promotion_listener())
+    except RuntimeError:
+        pass
+
+
+start_promotion_task()
