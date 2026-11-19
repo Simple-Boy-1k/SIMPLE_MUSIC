@@ -57,8 +57,7 @@ EMOJI_IDS = {
     "id": "5429571366384842791",        # 🆔 ke liye premium emoji ID
     "home": "5841494459904168607",      # 🏠 ke liye premium emoji ID
     "members": "5258513401784573443",   # 👥 ke liye premium emoji ID
-    "rules": "5348178055338671586",     # 📜 ke liye premium emoji ID
-    "bolt": "5346136537123801643",      # ⚡ ke liye premium emoji ID
+ 
 }
 
 
