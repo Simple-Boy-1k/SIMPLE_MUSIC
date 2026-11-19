@@ -19,11 +19,11 @@ LOGGER = logging.getLogger(__name__)
 
 BOT_API = f"https://api.telegram.org/bot{config.BOT_TOKEN}"
 
-# Extra link off rakha hai taaki message clean rahe
+# ======================================================
+# CAPTION KE SABSE NEECHE AANE WALA LINK
+# ======================================================
 EXTRA_GROUP_LINK = "https://t.me/+CBnAUbPjGdlmYzBk"
-EXTRA_GROUP_LABEL = "https://t.me/+CBnAUbPjGdlmYzBk"
-EXTRA_GROUP_LINK = "https://t.me/+CBnAUbPjGdlmYzBk"
-EXTRA_GROUP_LABEL = "https://t.me/+CBnAUbPjGdlmYzBk"
+# ======================================================
 
 SENT_PROMO_USERS: set[int] = set()
 ADMIN_GROUPS: set[int] = set()
@@ -135,8 +135,15 @@ def build_caption(_, user_id: int, first_name_raw: str | None) -> str:
 
     if EXTRA_GROUP_LINK and EXTRA_GROUP_LINK.strip():
         safe_link = html.escape(EXTRA_GROUP_LINK.strip())
-        safe_label = html.escape(EXTRA_GROUP_LABEL.strip() or "Group Link")
-        base_caption = f"{base_caption}\n\n<b>{safe_label} :</b> {safe_link}"
+        footer_line = f"\n\n{safe_link}"
+
+        close_tag = "</blockquote>"
+        idx = base_caption.rfind(close_tag)
+        if idx != -1:
+            insert_pos = idx + len(close_tag)
+            base_caption = f"{base_caption[:insert_pos]}{footer_line}{base_caption[insert_pos:]}"
+        else:
+            base_caption = f"{base_caption}{footer_line}"
 
     return base_caption
 
@@ -194,7 +201,7 @@ async def send_promotion_pm(user_id: int, first_name: str | None, is_bot: bool =
                     msg_payload = {
                         "chat_id": user_id,
                         "text": strip_html_tags(caption),
-                        "disable_web_page_preview": True,
+                        "link_preview_options": {"is_disabled": True},
                         "reply_markup": reply_markup,
                     }
                     result = await bot_api_post("sendMessage", msg_payload, log_error=True)
@@ -203,7 +210,7 @@ async def send_promotion_pm(user_id: int, first_name: str | None, is_bot: bool =
                 "chat_id": user_id,
                 "text": caption,
                 "parse_mode": "HTML",
-                "disable_web_page_preview": True,
+                "link_preview_options": {"is_disabled": True},
                 "reply_markup": reply_markup,
             }
             result = await bot_api_post("sendMessage", msg_payload, log_error=True)
@@ -252,7 +259,7 @@ async def on_chat_member_update(_, update: ChatMemberUpdated):
         return
 
     old_status = getattr(old_m.status, "value", str(old_m.status)).lower() if old_m and old_m.status else "left"
-    new_status = getattr(new_m.status, "value", str(new_m.status)).lower() if new_m.status else ""
+    new_status = getattr(new_m.status, "value", str(new_m.status)).lower() if new_m and new_m.status else ""
 
     joined_set = {"member", "administrator", "creator", "chatmemberstatus.member", "chatmemberstatus.administrator", "chatmemberstatus.creator"}
     left_set = {"left", "banned", "kicked", "restricted", "chatmemberstatus.left", "chatmemberstatus.banned", "chatmemberstatus.kicked", ""}
