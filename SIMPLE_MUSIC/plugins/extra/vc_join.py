@@ -38,7 +38,6 @@ def _extract_chat_id(update):
 
 
 async def subscribe_group_call(client: Client, chat_id: int):
-    """Group ki active VC ke participant updates subscribe karta hai."""
     try:
         peer = await client.resolve_peer(chat_id)
         if not isinstance(peer, types.InputPeerChannel):
@@ -61,12 +60,12 @@ async def subscribe_group_call(client: Client, chat_id: int):
                 limit=100,
             )
         )
-    except Exception:
-        pass
+        print(f"[VC DEBUG] Subscribed group call in chat_id={chat_id}")
+    except Exception as e:
+        print(f"[VC DEBUG] Subscribe failed for {chat_id}: {e}")
 
 
 async def _subscribe_existing_calls(client: Client):
-    """Bot start hone par assistant ke supergroups/channels ki active VCs subscribe karta hai."""
     try:
         async for dialog in client.get_dialogs():
             chat = getattr(dialog, "chat", None)
@@ -76,15 +75,18 @@ async def _subscribe_existing_calls(client: Client):
             if "supergroup" in chat_type or "channel" in chat_type:
                 await subscribe_group_call(client, chat.id)
                 await asyncio.sleep(0.2)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[VC DEBUG] Dialog scan error: {e}")
 
 
 def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
+    print(f"[VC DEBUG] Attached notifier to assistant={getattr(assistant_client, 'name', assistant_client)}")
+
     @assistant_client.on_raw_update()
     async def _on_vc_join_raw_update(client: Client, update, users: dict, chats: dict):
         if isinstance(update, types.UpdateGroupCall):
             chat_id = _extract_chat_id(update)
+            print(f"[VC DEBUG] UpdateGroupCall in chat_id={chat_id}")
             if chat_id:
                 await subscribe_group_call(client, chat_id)
             return
@@ -93,16 +95,19 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
             return
 
         chat_id = _extract_chat_id(update)
+        participants = getattr(update, "participants", [])
+        print(f"[VC DEBUG] UpdateGroupCallParticipants in chat_id={chat_id}, count={len(participants)}")
+
         if not chat_id:
             return
 
-        for participant in getattr(update, "participants", []):
-            if getattr(participant, "left", False):
-                continue
-
+        for participant in participants:
+            left = getattr(participant, "left", False)
             peer = getattr(participant, "peer", None)
             user_id = getattr(peer, "user_id", None)
-            if not user_id:
+            print(f"[VC DEBUG] Participant user_id={user_id}, left={left}")
+
+            if left or not user_id:
                 continue
 
             user_name = None
@@ -118,8 +123,8 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
                     first = tg_user.first_name or ""
                     last = f" {tg_user.last_name}" if tg_user.last_name else ""
                     user_name = f"{first}{last}".strip()
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[VC DEBUG] get_users error for {user_id}: {e}")
 
             user_name = user_name or f"User {user_id}"
 
@@ -130,8 +135,8 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
                 try:
                     chat_obj = await client.get_chat(chat_id)
                     group_title = chat_obj.title or group_title
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[VC DEBUG] get_chat error for {chat_id}: {e}")
 
             text = _format_vc_join_text(user_name, group_title)
             reply_markup = _format_vc_join_buttons(chat_id, user_id)
@@ -143,8 +148,9 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
                     reply_markup=reply_markup,
                     disable_web_page_preview=True,
                 )
+                print(f"[VC DEBUG] Alert sent successfully to {chat_id} for user {user_id}")
             except Exception as exc:
-                print(f"[VC Notifier] Failed in {chat_id}: {exc}")
+                print(f"[VC DEBUG] Failed sending message in {chat_id}: {exc}")
 
     try:
         loop = asyncio.get_running_loop()
