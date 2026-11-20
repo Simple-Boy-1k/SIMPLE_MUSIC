@@ -71,7 +71,7 @@ def find_panel_url_by_text(_, target_text: str) -> str | None:
 
 
 def make_promotion_keyboard(_):
-    """Auto PM ke liye sirf 3 buttons (danger color mein)."""
+    """Auto PM ke liye sirf 3 standard inline URL buttons."""
 
     bot_username = get_bot_username()
 
@@ -106,19 +106,16 @@ def make_promotion_keyboard(_):
             {
                 "text": btn_add_group,
                 "url": add_group_url,
-                "style": "danger",
             }
         ],
         [
             {
                 "text": btn_network,
                 "url": network_url,
-                "style": "danger",
             },
             {
                 "text": btn_home,
                 "url": home_url,
-                "style": "danger",
             },
         ],
     ]
