@@ -1,6 +1,5 @@
-import asyncio
 from pyrogram import Client
-from pyrogram.raw import functions, types
+from pyrogram.raw import types
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
@@ -26,88 +25,46 @@ def _format_vc_join_buttons(chat_id: int, user_id: int) -> InlineKeyboardMarkup:
     )
 
 
-def _extract_chat_id(update):
+def _extract_chat_id(update, chats: dict):
     if getattr(update, "chat_id", None):
-        return int(f"-100{update.chat_id}")
+        raw_id = int(update.chat_id)
+        return raw_id if str(raw_id).startswith("-100") else int(f"-100{raw_id}")
+
     peer = getattr(update, "peer", None)
     if peer and getattr(peer, "channel_id", None):
         return int(f"-100{peer.channel_id}")
     if peer and getattr(peer, "chat_id", None):
         return -int(peer.chat_id)
+
+    if chats:
+        for chat_key, chat_obj in chats.items():
+            raw_id = getattr(chat_obj, "id", None) or chat_key
+            if raw_id is not None:
+                raw_str = str(raw_id).replace("-100", "")
+                if raw_str.isdigit():
+                    return int(f"-100{raw_str}")
+
     return None
 
 
-async def subscribe_group_call(client: Client, chat_id: int):
-    try:
-        peer = await client.resolve_peer(chat_id)
-        if not isinstance(peer, types.InputPeerChannel):
-            return
-
-        full_chat = await client.invoke(
-            functions.channels.GetFullChannel(channel=peer)
-        )
-        call = getattr(full_chat.full_chat, "call", None)
-        if not call:
-            return
-
-        input_call = types.InputGroupCall(
-            id=call.id,
-            access_hash=call.access_hash,
-        )
-        await client.invoke(
-            functions.phone.GetGroupCall(
-                call=input_call,
-                limit=100,
-            )
-        )
-        print(f"[VC DEBUG] Subscribed group call in chat_id={chat_id}")
-    except Exception as e:
-        print(f"[VC DEBUG] Subscribe failed for {chat_id}: {e}")
-
-
-async def _subscribe_existing_calls(client: Client):
-    try:
-        async for dialog in client.get_dialogs():
-            chat = getattr(dialog, "chat", None)
-            if not chat:
-                continue
-            chat_type = str(getattr(chat, "type", "")).lower()
-            if "supergroup" in chat_type or "channel" in chat_type:
-                await subscribe_group_call(client, chat.id)
-                await asyncio.sleep(0.2)
-    except Exception as e:
-        print(f"[VC DEBUG] Dialog scan error: {e}")
-
-
 def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
-    print(f"[VC DEBUG] Attached notifier to assistant={getattr(assistant_client, 'name', assistant_client)}")
-
     @assistant_client.on_raw_update()
     async def _on_vc_join_raw_update(client: Client, update, users: dict, chats: dict):
-        if isinstance(update, types.UpdateGroupCall):
-            chat_id = _extract_chat_id(update)
-            print(f"[VC DEBUG] UpdateGroupCall in chat_id={chat_id}")
-            if chat_id:
-                await subscribe_group_call(client, chat_id)
-            return
-
         if not isinstance(update, types.UpdateGroupCallParticipants):
             return
 
-        chat_id = _extract_chat_id(update)
-        participants = getattr(update, "participants", [])
-        print(f"[VC DEBUG] UpdateGroupCallParticipants in chat_id={chat_id}, count={len(participants)}")
-
+        chat_id = _extract_chat_id(update, chats)
         if not chat_id:
+            print(f"[VC DEBUG] Could not resolve chat_id. chats={list(chats.keys()) if chats else None}")
             return
 
-        for participant in participants:
-            left = getattr(participant, "left", False)
+        for participant in getattr(update, "participants", []):
+            if getattr(participant, "left", False):
+                continue
+
             peer = getattr(participant, "peer", None)
             user_id = getattr(peer, "user_id", None)
-            print(f"[VC DEBUG] Participant user_id={user_id}, left={left}")
-
-            if left or not user_id:
+            if not user_id:
                 continue
 
             user_name = None
@@ -123,20 +80,25 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
                     first = tg_user.first_name or ""
                     last = f" {tg_user.last_name}" if tg_user.last_name else ""
                     user_name = f"{first}{last}".strip()
-                except Exception as e:
-                    print(f"[VC DEBUG] get_users error for {user_id}: {e}")
+                except Exception:
+                    pass
 
             user_name = user_name or f"User {user_id}"
 
             group_title = "Group"
-            if chat_id in chats:
-                group_title = getattr(chats[chat_id], "title", group_title) or group_title
-            else:
+            if chats:
+                for _, chat_obj in chats.items():
+                    title = getattr(chat_obj, "title", None)
+                    if title:
+                        group_title = title
+                        break
+
+            if group_title == "Group":
                 try:
                     chat_obj = await client.get_chat(chat_id)
                     group_title = chat_obj.title or group_title
-                except Exception as e:
-                    print(f"[VC DEBUG] get_chat error for {chat_id}: {e}")
+                except Exception:
+                    pass
 
             text = _format_vc_join_text(user_name, group_title)
             reply_markup = _format_vc_join_buttons(chat_id, user_id)
@@ -148,12 +110,5 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
                     reply_markup=reply_markup,
                     disable_web_page_preview=True,
                 )
-                print(f"[VC DEBUG] Alert sent successfully to {chat_id} for user {user_id}")
             except Exception as exc:
-                print(f"[VC DEBUG] Failed sending message in {chat_id}: {exc}")
-
-    try:
-        loop = asyncio.get_running_loop()
-        loop.create_task(_subscribe_existing_calls(assistant_client))
-    except RuntimeError:
-        pass
+                print(f"[VC DEBUG] Failed sending in {chat_id}: {exc}")
