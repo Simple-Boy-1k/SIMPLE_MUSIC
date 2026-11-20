@@ -8,7 +8,7 @@ def _format_vc_join_text(user_name: str, group_title: str) -> str:
         "🎙 <b>USER JOINED VOICE CHAT</b>\n"
         f"👤 <b>USER:</b> {user_name}\n"
         f"👥 <b>GROUP:</b> {group_title}\n"
-        "🌙 🧿"
+        ""
     )
 
 
