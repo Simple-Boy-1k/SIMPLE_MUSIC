@@ -22,8 +22,10 @@ import config
 from config import BANNED_USERS
 from SIMPLE_MUSIC import LOGGER, app, userbot
 from SIMPLE_MUSIC.core.call import SIMPLE
+from SIMPLE_MUSIC.core.userbot import assistants
 from SIMPLE_MUSIC.misc import sudo
 from SIMPLE_MUSIC.plugins import ALL_MODULES
+from SIMPLE_MUSIC.plugins.extra.vc_join import attach_vc_join_notifier
 from SIMPLE_MUSIC.utils.database import get_banned_users, get_gbanned
 
 COMMANDS = [
@@ -69,7 +71,7 @@ async def init():
         pass
 
     await app.start()
-    
+
     await setup_bot_commands()
 
     for all_module in ALL_MODULES:
@@ -80,6 +82,16 @@ async def init():
     )
 
     await userbot.start()
+    for assistant_num, client_attr in [
+        (1, userbot.one),
+        (2, userbot.two),
+        (3, userbot.three),
+        (4, userbot.four),
+        (5, userbot.five),
+    ]:
+        if assistant_num in assistants:
+            attach_vc_join_notifier(assistant_client=client_attr, main_bot=app)
+
     await SIMPLE.start()
 
     try:
@@ -99,7 +111,7 @@ async def init():
     await SIMPLE.decorators()
 
     LOGGER("SIMPLE_MUSIC").info(
-        "╔═════ஜ۩۞۩ஜ════╗\n  ☠︎︎𝗠𝗔𝗗𝗘 𝗕𝗬 𝗦𝗜𝗠𝗣𝗟𝗘 𝗕𝗢𝗬\n╚═════ஜ۩۞۩ஜ════╝"
+        "╔═════ஜ۩۞۩ஜ════╗\n  ☠𝗠𝗔𝗗𝗘 𝗕𝗬 𝗦𝗜𝗠𝗣𝗟𝗘 𝗕𝗢𝗬\n╚═════ஜ۩۞۩ஜ════╝"
     )
 
     await idle()
