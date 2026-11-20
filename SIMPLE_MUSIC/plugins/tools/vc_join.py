@@ -141,7 +141,7 @@ if app is not None:
                         f"👤 **Name:** {full_name}\n"
                         f"🆔 **ID:** `{user_id}`\n"
                         f"🔗 **Username:** {username_text}\n\n"
-                        f"⏳ *यह मैसेज {AUTO_DELETE_SECONDS}s में डिलीट हो जाएगा।*"
+                        f"⏳ *Ye message {AUTO_DELETE_SECONDS}s mein delete ho jayega.*"
                     )
 
                     sent_msg = await client.send_message(
