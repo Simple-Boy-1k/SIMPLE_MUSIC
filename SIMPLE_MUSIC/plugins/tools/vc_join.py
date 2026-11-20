@@ -8,149 +8,129 @@ except Exception:
     app = None
 
 AUTO_DELETE_SECONDS = 20
-_VC_ACTIVE_USERS = set()
+_VC_ACTIVE = set()
+_BOT_USERNAME = None
 
 
-def get_add_to_group_url(bot_username: str) -> str:
-    clean_username = (bot_username or "").lstrip("@")
-    admin_perms = (
+def _add_url(username: str) -> str:
+    clean = (username or "").lstrip("@")
+    perms = (
         "can_manage_chat+can_delete_messages+can_restrict_members+"
         "can_invite_users+can_pin_messages+can_manage_video_chats+"
         "can_promote_members+can_change_info"
     )
-    return f"https://t.me/{clean_username}?startgroup=true&admin={admin_perms}"
+    return f"https://t.me/{clean}?startgroup=true&admin={perms}"
 
 
-def build_join_vc_button(add_url: str) -> InlineKeyboardButton:
+def _vc_button(url: str) -> InlineKeyboardButton:
     try:
-        return InlineKeyboardButton(
-            text="join vc",
-            url=add_url,
-            style="danger",
-        )
+        return InlineKeyboardButton(text="join vc", url=url, style="danger")
     except TypeError:
-        return InlineKeyboardButton(
-            text="join vc",
-            url=add_url,
-        )
+        return InlineKeyboardButton(text="join vc", url=url)
 
 
-async def _delete_after_delay(msg, delay: int = AUTO_DELETE_SECONDS):
-    await asyncio.sleep(delay)
+async def _auto_delete(msg):
+    await asyncio.sleep(AUTO_DELETE_SECONDS)
     try:
         await msg.delete()
     except Exception:
         pass
 
 
-def _normalize_supergroup_id(raw_id) -> int:
+def _to_chat_id(raw_id, chats: dict) -> int:
+    if chats and raw_id in chats:
+        cid = getattr(chats[raw_id], "id", None)
+        if cid:
+            raw_id = cid
     s = str(raw_id)
     if s.startswith("-100"):
         return int(s)
     return int(f"-100{abs(int(raw_id))}")
 
 
-def _resolve_chat_id(raw_chat_id, chats: dict) -> int:
-    if chats and raw_chat_id in chats:
-        chat_obj = chats[raw_chat_id]
-        cid = getattr(chat_obj, "id", None)
-        if cid:
-            return _normalize_supergroup_id(cid)
-    return _normalize_supergroup_id(raw_chat_id)
-
-
-def _extract_vc_participant_updates(update):
-    found = []
+def _pull_updates(update):
+    out = []
     if isinstance(update, raw_types.UpdateGroupCallParticipants):
-        found.append(update)
+        out.append(update)
     elif isinstance(update, (raw_types.Updates, raw_types.UpdateCombined)):
-        for sub in getattr(update, "updates", []) or []:
-            if isinstance(sub, raw_types.UpdateGroupCallParticipants):
-                found.append(sub)
+        for item in getattr(update, "updates", []) or []:
+            if isinstance(item, raw_types.UpdateGroupCallParticipants):
+                out.append(item)
     elif isinstance(update, raw_types.UpdateShort):
         sub = getattr(update, "update", None)
         if isinstance(sub, raw_types.UpdateGroupCallParticipants):
-            found.append(sub)
-    return found
+            out.append(sub)
+    return out
 
 
 if app is not None:
 
     @app.on_raw_update()
-    async def vc_join_handler(client, update, users, chats):
+    async def on_vc_join(client, update, users, chats):
+        global _BOT_USERNAME
         try:
-            vc_updates = _extract_vc_participant_updates(update)
-            if not vc_updates:
+            items = _pull_updates(update)
+            if not items:
                 return
 
-            me = await client.get_me()
-            add_url = get_add_to_group_url(getattr(me, "username", "") or "")
-            keyboard = InlineKeyboardMarkup([[build_join_vc_button(add_url)]])
+            if not _BOT_USERNAME:
+                me = await client.get_me()
+                _BOT_USERNAME = getattr(me, "username", "") or ""
 
-            for vc_upd in vc_updates:
-                chat_id = _resolve_chat_id(vc_upd.chat_id, chats or {})
+            kb = InlineKeyboardMarkup([[_vc_button(_add_url(_BOT_USERNAME))]])
 
-                for participant in vc_upd.participants:
-                    peer = getattr(participant, "peer", None)
-                    user_id = getattr(peer, "user_id", None)
-                    if not user_id:
+            for upd in items:
+                chat_id = _to_chat_id(upd.chat_id, chats or {})
+
+                for p in upd.participants:
+                    peer = getattr(p, "peer", None)
+                    uid = getattr(peer, "user_id", None)
+                    if not uid:
                         continue
-                    user_id = int(user_id)
+                    uid = int(uid)
 
-                    is_left = bool(getattr(participant, "left", False))
-                    was_in_vc = (chat_id, user_id) in _VC_ACTIVE_USERS
+                    if getattr(p, "left", False):
+                        _VC_ACTIVE.discard((chat_id, uid))
+                        continue
 
-                    if is_left:
-                        if not was_in_vc:
-                            continue
-                        _VC_ACTIVE_USERS.discard((chat_id, user_id))
-                        event_title = "🚪 **Voice Chat Leave Alert!**"
-                    else:
-                        if was_in_vc:
-                            continue
-                        _VC_ACTIVE_USERS.add((chat_id, user_id))
-                        event_title = "🎙 **Voice Chat Join Alert!**"
+                    if (chat_id, uid) in _VC_ACTIVE:
+                        continue
+                    _VC_ACTIVE.add((chat_id, uid))
 
-                    full_name = "Unknown User"
-                    username_text = "No Username"
+                    name = "Unknown User"
+                    uname = "No Username"
 
-                    if users and user_id in users:
-                        u = users[user_id]
-                        fn = getattr(u, "first_name", "") or ""
-                        ln = getattr(u, "last_name", "") or ""
-                        if f"{fn} {ln}".strip():
-                            full_name = f"{fn} {ln}".strip()
+                    if users and uid in users:
+                        u = users[uid]
+                        full = f"{getattr(u, 'first_name', '') or ''} {getattr(u, 'last_name', '') or ''}".strip()
+                        if full:
+                            name = full
                         if getattr(u, "username", None):
-                            username_text = f"@{u.username}"
+                            uname = f"@{u.username}"
 
-                    if full_name == "Unknown User":
+                    if name == "Unknown User":
                         try:
-                            user = await client.get_users(user_id)
-                            full_name = (
-                                f"{user.first_name or ''} {user.last_name or ''}".strip()
-                                or "Unknown User"
-                            )
-                            username_text = (
-                                f"@{user.username}" if user.username else "No Username"
-                            )
+                            u = await client.get_users(uid)
+                            full = f"{u.first_name or ''} {u.last_name or ''}".strip()
+                            if full:
+                                name = full
+                            uname = f"@{u.username}" if u.username else "No Username"
                         except Exception:
                             pass
 
                     text = (
-                        f"{event_title}\n\n"
-                        f"👤 **Name:** {full_name}\n"
-                        f"🆔 **ID:** `{user_id}`\n"
-                        f"🔗 **Username:** {username_text}\n\n"
-                        f"⏳ *Ye message {AUTO_DELETE_SECONDS}s mein delete ho jayega.*"
+                        "🎙 **VC Join Alert!**\n\n"
+                        f"👤 **Name:** {name}\n"
+                        f"🆔 **ID:** `{uid}`\n"
+                        f"🔗 **Username:** {uname}\n\n"
+                        f"⏳ *{AUTO_DELETE_SECONDS}s mein delete ho jayega.*"
                     )
 
-                    sent_msg = await client.send_message(
+                    msg = await client.send_message(
                         chat_id=chat_id,
                         text=text,
-                        reply_markup=keyboard,
+                        reply_markup=kb,
                     )
-                    asyncio.create_task(
-                        _delete_after_delay(sent_msg, AUTO_DELETE_SECONDS)
-                    )
+                    asyncio.create_task(_auto_delete(msg))
         except Exception:
             pass
