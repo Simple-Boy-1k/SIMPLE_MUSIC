@@ -51,11 +51,7 @@
       "description": "Your YouTube Data API Key.Get Api Key bot @SHRUTIAPIBOT",
       "value": "",
       "required": false
-    }‚
-    "SHRUTI_API_URL": {
-      "description": "Your Shruti API URL",
-      "value": "https://api.shrutibots.in",
-      "required": true  
+     
     },
     "HEROKU_API_KEY": {
       "description": "Your Heroku account's API key",
