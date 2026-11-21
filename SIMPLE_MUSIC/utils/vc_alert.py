@@ -31,17 +31,17 @@ def _format_vc_event_text(
     username_line = f"@{html.escape(username)}" if username else "None"
 
     if event_type == "join":
-        header = "🎙 <b>USER JOINED VOICE CHAT</b>"
-        quote = "<blockquote><b>✨ TAP BELOW TO JOIN ✨</b></blockquote>"
+        header = "🎙 <b>ᴜꜱᴇʀ ᴊᴏɪɴᴇᴅ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ</b>"
+        quote = "<blockquote><b>ᴛᴀʙ ʙᴇʟᴏᴡ ᴛᴏ ᴊᴏɪɴ</b></blockquote>"
     else:
-        header = "🚪 <b>USER LEFT VOICE CHAT</b>"
-        quote = "<blockquote><b>🌙 LEFT THE VOICE CHAT 🌙</b></blockquote>"
+        header = "🚪 <b>ᴜꜱᴇʀ ʟᴇꜰᴛ ᴠᴄ ᴄʜᴀᴛ</b>"
+        quote = "<blockquote><b>ʟᴇꜰᴛ ᴛʜᴇ ᴠᴄ  🌙</b></blockquote>"
 
     return (
         f"{header}\n"
-        f"👤 <b>USER:</b> {user_mention}\n"
-        f"⚡ <b>USERNAME:</b> {username_line}\n"
-        f"👥 <b>GROUP:</b> {safe_group}\n"
+        f"👤 <b>ᴜꜱᴇʀ:</b> {user_mention}\n"
+        f"⚡ <b>ᴜꜱᴇʀɴᴀᴍᴇ:</b> {username_line}\n"
+        f"👥 <b>ɢʀᴏᴜᴩ:</b> {safe_group}\n"
         f"{quote}"
     )
 
