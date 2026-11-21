@@ -2,7 +2,6 @@ import asyncio
 import html
 import config
 from pyrogram import Client
-from pyrogram.enums import ChatMemberStatus
 from pyrogram.raw import functions, types
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -10,9 +9,11 @@ _known_participants: dict[int, set[int]] = {}
 _tracked_assistants: list[Client] = []
 _app: Client | None = None
 _loop_started = False
+AUTO_DELETE_SECONDS = 20
 
 
-def _format_vc_join_text(
+def _format_vc_event_text(
+    event_type: str,
     user_name: str,
     user_id: int,
     username: str | None,
@@ -23,16 +24,23 @@ def _format_vc_join_text(
     user_mention = f'<a href="tg://user?id={user_id}">{safe_name}</a>'
     username_line = f"@{html.escape(username)}" if username else "None"
 
+    if event_type == "join":
+        header = "🎙 <b>USER JOINED VOICE CHAT</b>"
+        quote = "<blockquote><b>✨ TAP BELOW TO JOIN ✨</b></blockquote>"
+    else:
+        header = "🚪 <b>USER LEFT VOICE CHAT</b>"
+        quote = "<blockquote><b>🌙 LEFT THE VOICE CHAT 🌙</b></blockquote>"
+
     return (
-        "🎙 <b>USER JOINED VOICE CHAT</b>\n"
+        f"{header}\n"
         f"👤 <b>USER:</b> {user_mention}\n"
         f"⚡ <b>USERNAME:</b> {username_line}\n"
         f"👥 <b>GROUP:</b> {safe_group}\n"
-        "<blockquote><b>✨ TAP BELOW TO JOIN ✨</b></blockquote>"
+        f"{quote}"
     )
 
 
-def _format_vc_join_buttons(
+def _format_vc_buttons(
     chat_id: int,
     user_id: int,
     bot_username: str | None = None,
@@ -54,6 +62,14 @@ def _format_vc_join_buttons(
     )
 
 
+async def _delete_after_delay(message, delay: int = AUTO_DELETE_SECONDS):
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+
 async def _is_bot_admin(bot: Client, chat_id: int) -> bool:
     logger_id = getattr(config, "LOGGER_ID", None)
     if logger_id and int(chat_id) == int(logger_id):
@@ -68,12 +84,13 @@ async def _is_bot_admin(bot: Client, chat_id: int) -> bool:
         return False
 
 
-async def _send_normal_vc_message(
+async def _send_vc_alert(
     assistant: Client,
     bot: Client,
     chat_id: int,
     group_title: str,
     user_id: int,
+    event_type: str,
 ):
     if not await _is_bot_admin(bot, chat_id):
         return
@@ -94,25 +111,27 @@ async def _send_normal_vc_message(
     me = bot.me or await bot.get_me()
     bot_username = getattr(me, "username", None)
 
-    text = _format_vc_join_text(
+    text = _format_vc_event_text(
+        event_type=event_type,
         user_name=user_name,
         user_id=user_id,
         username=username,
         group_title=group_title,
     )
-    reply_markup = _format_vc_join_buttons(
+    reply_markup = _format_vc_buttons(
         chat_id=chat_id,
         user_id=user_id,
         bot_username=bot_username,
     )
 
     try:
-        await bot.send_message(
+        sent_msg = await bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=reply_markup,
             disable_web_page_preview=True,
         )
+        asyncio.create_task(_delete_after_delay(sent_msg, AUTO_DELETE_SECONDS))
     except Exception as e:
         print(f"[VC Join] Send error in {chat_id}: {e}")
 
@@ -133,7 +152,18 @@ async def _scan_chat_vc(assistant: Client, bot: Client, chat):
         )
         call = getattr(full_chat.full_chat, "call", None)
         if not call:
-            _known_participants.pop(chat_id, None)
+            prev_ids = _known_participants.pop(chat_id, None)
+            if prev_ids:
+                group_title = getattr(chat, "title", None) or "Group"
+                for uid in prev_ids:
+                    await _send_vc_alert(
+                        assistant=assistant,
+                        bot=bot,
+                        chat_id=chat_id,
+                        group_title=group_title,
+                        user_id=uid,
+                        event_type="left",
+                    )
             return
 
         input_call = types.InputGroupCall(
@@ -163,16 +193,27 @@ async def _scan_chat_vc(assistant: Client, bot: Client, chat):
             return
 
         joined_ids = current_ids - prev_ids
+        left_ids = prev_ids - current_ids
         _known_participants[chat_id] = current_ids
 
         group_title = getattr(chat, "title", None) or "Group"
         for uid in joined_ids:
-            await _send_normal_vc_message(
+            await _send_vc_alert(
                 assistant=assistant,
                 bot=bot,
                 chat_id=chat_id,
                 group_title=group_title,
                 user_id=uid,
+                event_type="join",
+            )
+        for uid in left_ids:
+            await _send_vc_alert(
+                assistant=assistant,
+                bot=bot,
+                chat_id=chat_id,
+                group_title=group_title,
+                user_id=uid,
+                event_type="left",
             )
     except Exception:
         pass
