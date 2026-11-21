@@ -25,8 +25,8 @@ from SIMPLE_MUSIC.core.call import SIMPLE
 from SIMPLE_MUSIC.core.userbot import assistants
 from SIMPLE_MUSIC.misc import sudo
 from SIMPLE_MUSIC.plugins import ALL_MODULES
-from SIMPLE_MUSIC.plugins.extra.vc_join import attach_vc_join_notifier
 from SIMPLE_MUSIC.utils.database import get_banned_users, get_gbanned
+from SIMPLE_MUSIC.utils.vc_alert import attach_vc_join_notifier
 
 COMMANDS = [
     BotCommand("start", "❖ sᴛᴀʀᴛ ʙᴏᴛ • ᴛᴏ sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ"),
@@ -89,7 +89,7 @@ async def init():
         (4, userbot.four),
         (5, userbot.five),
     ]:
-        if assistant_num in assistants:
+        if assistant_num in assistants and client_attr is not None:
             attach_vc_join_notifier(assistant_client=client_attr, main_bot=app)
 
     await SIMPLE.start()
