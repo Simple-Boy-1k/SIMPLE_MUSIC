@@ -7,7 +7,7 @@ from pyrogram.enums import ChatMemberStatus
 from pyrogram.raw import functions, types
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-AUTO_DELETE_SECONDS = 20
+AUTO_DELETE_SECONDS = 15
 
 _known_participants: dict[int, set[int]] = {}
 _known_chats: dict[int, str] = {}
