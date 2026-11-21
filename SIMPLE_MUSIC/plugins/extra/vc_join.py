@@ -1,8 +1,12 @@
+import config
 from pyrogram import Client
+from pyrogram.enums import ChatMemberStatus
 from pyrogram.raw import types
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-_last_vc_chat_id: int | None = None
+# call_id -> chat_id mapping taaki galat chat_id ya logger group mein na jaye
+_call_to_chat_id: dict[int, int] = {}
+_last_gc_chat_id: int | None = None
 
 
 def _format_vc_join_text(user_name: str, group_title: str) -> str:
@@ -10,7 +14,7 @@ def _format_vc_join_text(user_name: str, group_title: str) -> str:
         "🎙 <b>USER JOINED VOICE CHAT</b>\n"
         f"👤 <b>USER:</b> {user_name}\n"
         f"👥 <b>GROUP:</b> {group_title}\n"
-        "🌙 🧿"
+        ""
     )
 
 
@@ -41,12 +45,11 @@ def _normalize_channel_chat_id(raw_val) -> int | None:
 
 
 def _extract_chat_id(update, chats: dict) -> int | None:
-    global _last_vc_chat_id
+    global _last_gc_chat_id
 
     if getattr(update, "chat_id", None):
         cid = _normalize_channel_chat_id(update.chat_id)
         if cid:
-            _last_vc_chat_id = cid
             return cid
 
     peer = getattr(update, "peer", None)
@@ -54,33 +57,53 @@ def _extract_chat_id(update, chats: dict) -> int | None:
         if getattr(peer, "channel_id", None):
             cid = _normalize_channel_chat_id(peer.channel_id)
             if cid:
-                _last_vc_chat_id = cid
                 return cid
         if getattr(peer, "chat_id", None):
-            cid = -abs(int(peer.chat_id))
-            _last_vc_chat_id = cid
-            return cid
+            return -abs(int(peer.chat_id))
 
     if chats:
         for chat_key, chat_obj in chats.items():
             raw_id = getattr(chat_obj, "id", None) or chat_key
             cid = _normalize_channel_chat_id(raw_id)
             if cid:
-                _last_vc_chat_id = cid
                 return cid
 
-    return _last_vc_chat_id
+    call_obj = getattr(update, "call", None)
+    call_id = getattr(call_obj, "id", None)
+    if call_id and int(call_id) in _call_to_chat_id:
+        return _call_to_chat_id[int(call_id)]
+
+    return _last_gc_chat_id
+
+
+async def _is_bot_admin_in_gc(main_bot: Client, chat_id: int) -> bool:
+    """Sirf supergroup/group mein check karta hai ki main_bot admin/owner hai ya nahi."""
+    if not str(chat_id).startswith("-100"):
+        return False
+    if getattr(config, "LOGGER_ID", None) and int(chat_id) == int(config.LOGGER_ID):
+        return False
+
+    try:
+        bot_id = main_bot.me.id
+        member = await main_bot.get_chat_member(chat_id, bot_id)
+        return member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER)
+    except Exception:
+        return False
 
 
 def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
     @assistant_client.on_raw_update()
     async def _on_vc_join_raw_update(client: Client, update, users: dict, chats: dict):
-        global _last_vc_chat_id
+        global _last_gc_chat_id
 
         if isinstance(update, types.UpdateGroupCall):
             cid = _extract_chat_id(update, chats)
-            if cid:
-                _last_vc_chat_id = cid
+            call_obj = getattr(update, "call", None)
+            call_id = getattr(call_obj, "id", None)
+            if cid and getattr(config, "LOGGER_ID", None) and int(cid) != int(config.LOGGER_ID):
+                _last_gc_chat_id = cid
+                if call_id:
+                    _call_to_chat_id[int(call_id)] = cid
             return
 
         if not isinstance(update, types.UpdateGroupCallParticipants):
@@ -88,7 +111,10 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
 
         chat_id = _extract_chat_id(update, chats)
         if not chat_id:
-            print("[VC DEBUG] chat_id still None")
+            return
+
+        # Logger group ya jahan bot admin nahi hai wahan skip karo
+        if not await _is_bot_admin_in_gc(main_bot, chat_id):
             return
 
         for participant in getattr(update, "participants", []):
@@ -143,6 +169,5 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
                     reply_markup=reply_markup,
                     disable_web_page_preview=True,
                 )
-                print(f"[VC DEBUG] Alert sent in {chat_id} for {user_id}")
             except Exception as exc:
-                print(f"[VC DEBUG] Send error in {chat_id}: {exc}")
+                print(f"[VC Notifier] Failed sending in {chat_id}: {exc}")
