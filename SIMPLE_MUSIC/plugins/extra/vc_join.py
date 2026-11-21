@@ -2,6 +2,8 @@ from pyrogram import Client
 from pyrogram.raw import types
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+_last_vc_chat_id: int | None = None
+
 
 def _format_vc_join_text(user_name: str, group_title: str) -> str:
     return (
@@ -25,37 +27,68 @@ def _format_vc_join_buttons(chat_id: int, user_id: int) -> InlineKeyboardMarkup:
     )
 
 
-def _extract_chat_id(update, chats: dict):
+def _normalize_channel_chat_id(raw_val) -> int | None:
+    if raw_val is None:
+        return None
+    s = str(raw_val)
+    if s.startswith("-100"):
+        return int(s) if s[4:].isdigit() else None
+    if s.startswith("-"):
+        return int(s) if s[1:].isdigit() else None
+    if s.isdigit():
+        return int(f"-100{s}")
+    return None
+
+
+def _extract_chat_id(update, chats: dict) -> int | None:
+    global _last_vc_chat_id
+
     if getattr(update, "chat_id", None):
-        raw_id = int(update.chat_id)
-        return raw_id if str(raw_id).startswith("-100") else int(f"-100{raw_id}")
+        cid = _normalize_channel_chat_id(update.chat_id)
+        if cid:
+            _last_vc_chat_id = cid
+            return cid
 
     peer = getattr(update, "peer", None)
-    if peer and getattr(peer, "channel_id", None):
-        return int(f"-100{peer.channel_id}")
-    if peer and getattr(peer, "chat_id", None):
-        return -int(peer.chat_id)
+    if peer:
+        if getattr(peer, "channel_id", None):
+            cid = _normalize_channel_chat_id(peer.channel_id)
+            if cid:
+                _last_vc_chat_id = cid
+                return cid
+        if getattr(peer, "chat_id", None):
+            cid = -abs(int(peer.chat_id))
+            _last_vc_chat_id = cid
+            return cid
 
     if chats:
         for chat_key, chat_obj in chats.items():
             raw_id = getattr(chat_obj, "id", None) or chat_key
-            if raw_id is not None:
-                raw_str = str(raw_id).replace("-100", "")
-                if raw_str.isdigit():
-                    return int(f"-100{raw_str}")
+            cid = _normalize_channel_chat_id(raw_id)
+            if cid:
+                _last_vc_chat_id = cid
+                return cid
 
-    return None
+    return _last_vc_chat_id
 
 
 def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
     @assistant_client.on_raw_update()
     async def _on_vc_join_raw_update(client: Client, update, users: dict, chats: dict):
+        global _last_vc_chat_id
+
+        if isinstance(update, types.UpdateGroupCall):
+            cid = _extract_chat_id(update, chats)
+            if cid:
+                _last_vc_chat_id = cid
+            return
+
         if not isinstance(update, types.UpdateGroupCallParticipants):
             return
 
         chat_id = _extract_chat_id(update, chats)
         if not chat_id:
-            print(f"[VC DEBUG] Could not resolve chat_id. chats={list(chats.keys()) if chats else None}")
+            print("[VC DEBUG] chat_id still None")
             return
 
         for participant in getattr(update, "participants", []):
@@ -110,5 +143,6 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
                     reply_markup=reply_markup,
                     disable_web_page_preview=True,
                 )
+                print(f"[VC DEBUG] Alert sent in {chat_id} for {user_id}")
             except Exception as exc:
-                print(f"[VC DEBUG] Failed sending in {chat_id}: {exc}")
+                print(f"[VC DEBUG] Send error in {chat_id}: {exc}")
