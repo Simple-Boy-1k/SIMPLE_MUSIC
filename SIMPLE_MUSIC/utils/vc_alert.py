@@ -48,9 +48,9 @@ def _format_vc_event_text(
     )
 
 
-def _make_danger_button(text: str, url: str) -> InlineKeyboardButton:
+def _make_styled_button(text: str, url: str, style: str) -> InlineKeyboardButton:
     try:
-        return InlineKeyboardButton(text=text, url=url, style="danger")
+        return InlineKeyboardButton(text=text, url=url, style=style)
     except TypeError:
         return InlineKeyboardButton(text=text, url=url)
 
@@ -70,8 +70,8 @@ def _format_vc_buttons(
     return InlineKeyboardMarkup(
         [
             [
-                _make_danger_button("🎧 Join VC", vc_link),
-                _make_danger_button("➕ Add Me", add_bot_url),
+                _make_styled_button("🎧 Join VC", vc_link, "success"),
+                _make_styled_button("➕ Add Me", add_bot_url, "danger"),
             ]
         ]
     )
@@ -274,7 +274,7 @@ async def _sync_chat_vc(assistant: Client, bot: Client, chat_id: int, group_titl
 
     title = group_title or _known_chats.get(chat_id) or "Group"
     if group_title:
-        _known_chats[chat_id] = group_title
+        _known_chats[chat_id] = title
 
     try:
         try:
