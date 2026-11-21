@@ -404,4 +404,60 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
             if cid and call_id:
                 _call_to_chat_id[call_id] = cid
             if cid:
-                await _sync_chat_vc(client, bot, cid
+                await _sync_chat_vc(client, bot, cid)
+            return
+
+        if not isinstance(update, types.UpdateGroupCallParticipants):
+            return
+
+        cid = _extract_chat_id(update, chats)
+        call_id = _extract_call_id(update)
+        if not cid and call_id:
+            cid = _call_to_chat_id.get(call_id)
+        if not cid:
+            return
+
+        if call_id:
+            _call_to_chat_id[call_id] = cid
+
+        active_set = _known_participants.setdefault(cid, set())
+        title = _known_chats.get(cid) or "Group"
+
+        for participant in getattr(update, "participants", []) or []:
+            peer = getattr(participant, "peer", None)
+            uid = getattr(peer, "user_id", None)
+            if not uid:
+                continue
+            uid = int(uid)
+            left = bool(getattr(participant, "left", False))
+
+            if left:
+                active_set.discard(uid)
+                await _dispatch_alert(
+                    assistant=client,
+                    bot=bot,
+                    chat_id=cid,
+                    group_title=title,
+                    user_id=uid,
+                    event_type="left",
+                    users_cache=users,
+                )
+            else:
+                active_set.add(uid)
+                await _dispatch_alert(
+                    assistant=client,
+                    bot=bot,
+                    chat_id=cid,
+                    group_title=title,
+                    user_id=uid,
+                    event_type="join",
+                    users_cache=users,
+                )
+
+    try:
+        loop = asyncio.get_running_loop()
+        if not _poller_started:
+            _poller_started = True
+            loop.create_task(_vc_poller_loop())
+    except RuntimeError:
+        pass
