@@ -1,31 +1,51 @@
+import html
 import config
 from pyrogram import Client
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.raw import types
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-# call_id -> chat_id mapping taaki galat chat_id ya logger group mein na jaye
 _call_to_chat_id: dict[int, int] = {}
 _last_gc_chat_id: int | None = None
 
 
-def _format_vc_join_text(user_name: str, group_title: str) -> str:
+def _format_vc_join_text(
+    user_name: str,
+    user_id: int,
+    username: str | None,
+    group_title: str,
+) -> str:
+    safe_name = html.escape(user_name)
+    safe_group = html.escape(group_title)
+    user_mention = f'<a href="tg://user?id={user_id}">{safe_name}</a>'
+    username_line = f"@{html.escape(username)}" if username else "None"
+
     return (
         "🎙 <b>USER JOINED VOICE CHAT</b>\n"
-        f"👤 <b>USER:</b> {user_name}\n"
-        f"👥 <b>GROUP:</b> {group_title}\n"
-        ""
+        f"👤 <b>USER:</b> {user_mention}\n"
+        f"⚡ <b>USERNAME:</b> {username_line}\n"
+        f"👥 <b>GROUP:</b> {safe_group}\n"
+        "<blockquote><b>✨ TAP BELOW TO JOIN ✨</b></blockquote>"
     )
 
 
-def _format_vc_join_buttons(chat_id: int, user_id: int) -> InlineKeyboardMarkup:
+def _format_vc_join_buttons(
+    chat_id: int,
+    user_id: int,
+    bot_username: str | None = None,
+) -> InlineKeyboardMarkup:
     clean_id = str(chat_id).replace("-100", "")
     vc_link = f"https://t.me/c/{clean_id}/1?videochat"
+    add_bot_url = (
+        f"https://t.me/{bot_username}?startgroup=true"
+        if bot_username
+        else f"tg://user?id={user_id}"
+    )
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton("🎧 Join VC", url=vc_link),
-                InlineKeyboardButton("➕ Add Me", url=f"tg://user?id={user_id}"),
+                InlineKeyboardButton("➕ Add Me", url=add_bot_url),
             ]
         ]
     )
@@ -77,17 +97,26 @@ def _extract_chat_id(update, chats: dict) -> int | None:
 
 
 async def _is_bot_admin_in_gc(main_bot: Client, chat_id: int) -> bool:
-    """Sirf supergroup/group mein check karta hai ki main_bot admin/owner hai ya nahi."""
-    if not str(chat_id).startswith("-100"):
-        return False
-    if getattr(config, "LOGGER_ID", None) and int(chat_id) == int(config.LOGGER_ID):
+    """Logger group ko chhodkar sirf un GCs ko allow karta hai jahan main_bot admin/owner hai."""
+    logger_id = getattr(config, "LOGGER_ID", None)
+    if logger_id and int(chat_id) == int(logger_id):
+        print(f"[VC DEBUG] Skipped logger group {chat_id}")
         return False
 
     try:
         bot_id = main_bot.me.id
         member = await main_bot.get_chat_member(chat_id, bot_id)
-        return member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER)
-    except Exception:
+        status = getattr(member, "status", None)
+        status_str = str(status).upper()
+        is_admin = (
+            status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER)
+            or "ADMINISTRATOR" in status_str
+            or "OWNER" in status_str
+        )
+        print(f"[VC DEBUG] chat_id={chat_id}, bot_status={status}, is_admin={is_admin}")
+        return is_admin
+    except Exception as e:
+        print(f"[VC DEBUG] get_chat_member failed for {chat_id}: {e}")
         return False
 
 
@@ -100,22 +129,26 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
             cid = _extract_chat_id(update, chats)
             call_obj = getattr(update, "call", None)
             call_id = getattr(call_obj, "id", None)
-            if cid and getattr(config, "LOGGER_ID", None) and int(cid) != int(config.LOGGER_ID):
+            logger_id = getattr(config, "LOGGER_ID", None)
+            if cid and not (logger_id and int(cid) == int(logger_id)):
                 _last_gc_chat_id = cid
                 if call_id:
                     _call_to_chat_id[int(call_id)] = cid
+                print(f"[VC DEBUG] Tracked GC call_id={call_id} -> chat_id={cid}")
             return
 
         if not isinstance(update, types.UpdateGroupCallParticipants):
             return
 
         chat_id = _extract_chat_id(update, chats)
+        print(f"[VC DEBUG] Participants update -> chat_id={chat_id}, chats_keys={list(chats.keys()) if chats else []}")
         if not chat_id:
             return
 
-        # Logger group ya jahan bot admin nahi hai wahan skip karo
         if not await _is_bot_admin_in_gc(main_bot, chat_id):
             return
+
+        bot_username = getattr(getattr(main_bot, "me", None), "username", None)
 
         for participant in getattr(update, "participants", []):
             if getattr(participant, "left", False):
@@ -127,18 +160,24 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
                 continue
 
             user_name = None
+            username = None
+
             if user_id in users:
                 u = users[user_id]
                 first = getattr(u, "first_name", "") or ""
                 last = f" {getattr(u, 'last_name', '')}" if getattr(u, "last_name", None) else ""
                 user_name = f"{first}{last}".strip()
+                username = getattr(u, "username", None)
 
-            if not user_name:
+            if not user_name or not username:
                 try:
                     tg_user = await client.get_users(user_id)
-                    first = tg_user.first_name or ""
-                    last = f" {tg_user.last_name}" if tg_user.last_name else ""
-                    user_name = f"{first}{last}".strip()
+                    if not user_name:
+                        first = tg_user.first_name or ""
+                        last = f" {tg_user.last_name}" if tg_user.last_name else ""
+                        user_name = f"{first}{last}".strip()
+                    if not username:
+                        username = tg_user.username
                 except Exception:
                     pass
 
@@ -159,8 +198,17 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
                 except Exception:
                     pass
 
-            text = _format_vc_join_text(user_name, group_title)
-            reply_markup = _format_vc_join_buttons(chat_id, user_id)
+            text = _format_vc_join_text(
+                user_name=user_name,
+                user_id=user_id,
+                username=username,
+                group_title=group_title,
+            )
+            reply_markup = _format_vc_join_buttons(
+                chat_id=chat_id,
+                user_id=user_id,
+                bot_username=bot_username,
+            )
 
             try:
                 await main_bot.send_message(
@@ -169,5 +217,6 @@ def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
                     reply_markup=reply_markup,
                     disable_web_page_preview=True,
                 )
+                print(f"[VC DEBUG] Sent VC alert to {chat_id} for user_id={user_id}")
             except Exception as exc:
-                print(f"[VC Notifier] Failed sending in {chat_id}: {exc}")
+                print(f"[VC DEBUG] Failed sending in {chat_id}: {exc}")
