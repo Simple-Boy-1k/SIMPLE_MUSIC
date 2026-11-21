@@ -8,8 +8,8 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 _known_participants: dict[int, set[int]] = {}
 _tracked_assistants: list[Client] = []
-_main_bot_ref: Client | None = None
-_poll_task_started = False
+_app: Client | None = None
+_loop_started = False
 
 
 def _format_vc_join_text(
@@ -54,46 +54,44 @@ def _format_vc_join_buttons(
     )
 
 
-async def _is_bot_admin_in_gc(main_bot: Client, chat_id: int) -> bool:
+async def _is_bot_admin(bot: Client, chat_id: int) -> bool:
     logger_id = getattr(config, "LOGGER_ID", None)
     if logger_id and int(chat_id) == int(logger_id):
         return False
 
     try:
-        me = main_bot.me or await main_bot.get_me()
-        member = await main_bot.get_chat_member(chat_id, me.id)
+        me = bot.me or await bot.get_me()
+        member = await bot.get_chat_member(chat_id, me.id)
         status_str = str(getattr(member, "status", "")).upper()
         return "ADMINISTRATOR" in status_str or "OWNER" in status_str
-    except Exception as e:
-        print(f"[VC DEBUG] Admin check failed in {chat_id}: {e}")
+    except Exception:
         return False
 
 
-async def _send_join_alert(
-    assistant_client: Client,
-    main_bot: Client,
+async def _send_normal_vc_message(
+    assistant: Client,
+    bot: Client,
     chat_id: int,
     group_title: str,
     user_id: int,
 ):
-    if not await _is_bot_admin_in_gc(main_bot, chat_id):
-        print(f"[VC DEBUG] Skipped {chat_id}: bot not admin or logger group")
+    if not await _is_bot_admin(bot, chat_id):
         return
 
     user_name = f"User {user_id}"
     username = None
     try:
-        tg_user = await assistant_client.get_users(user_id)
-        first = getattr(tg_user, "first_name", "") or ""
-        last = f" {tg_user.last_name}" if getattr(tg_user, "last_name", None) else ""
-        full = f"{first}{last}".strip()
-        if full:
-            user_name = full
-        username = getattr(tg_user, "username", None)
+        user = await assistant.get_users(user_id)
+        first = getattr(user, "first_name", "") or ""
+        last = f" {user.last_name}" if getattr(user, "last_name", None) else ""
+        full_name = f"{first}{last}".strip()
+        if full_name:
+            user_name = full_name
+        username = getattr(user, "username", None)
     except Exception:
         pass
 
-    me = main_bot.me or await main_bot.get_me()
+    me = bot.me or await bot.get_me()
     bot_username = getattr(me, "username", None)
 
     text = _format_vc_join_text(
@@ -109,29 +107,28 @@ async def _send_join_alert(
     )
 
     try:
-        await main_bot.send_message(
+        await bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=reply_markup,
             disable_web_page_preview=True,
         )
-        print(f"[VC DEBUG] Alert sent to {chat_id} for {user_id}")
     except Exception as e:
-        print(f"[VC DEBUG] Send failed in {chat_id}: {e}")
+        print(f"[VC Join] Send error in {chat_id}: {e}")
 
 
-async def _check_chat_vc_participants(assistant_client: Client, main_bot: Client, chat):
+async def _scan_chat_vc(assistant: Client, bot: Client, chat):
     chat_id = int(chat.id)
     logger_id = getattr(config, "LOGGER_ID", None)
     if logger_id and chat_id == int(logger_id):
         return
 
     try:
-        peer = await assistant_client.resolve_peer(chat_id)
+        peer = await assistant.resolve_peer(chat_id)
         if not isinstance(peer, types.InputPeerChannel):
             return
 
-        full_chat = await assistant_client.invoke(
+        full_chat = await assistant.invoke(
             functions.channels.GetFullChannel(channel=peer)
         )
         call = getattr(full_chat.full_chat, "call", None)
@@ -143,7 +140,7 @@ async def _check_chat_vc_participants(assistant_client: Client, main_bot: Client
             id=call.id,
             access_hash=call.access_hash,
         )
-        res = await assistant_client.invoke(
+        res = await assistant.invoke(
             functions.phone.GetGroupParticipants(
                 call=input_call,
                 ids=[],
@@ -162,7 +159,6 @@ async def _check_chat_vc_participants(assistant_client: Client, main_bot: Client
 
         prev_ids = _known_participants.get(chat_id)
         if prev_ids is None:
-            # Pehli scan mein existing members baseline set karo
             _known_participants[chat_id] = current_ids
             return
 
@@ -171,54 +167,53 @@ async def _check_chat_vc_participants(assistant_client: Client, main_bot: Client
 
         group_title = getattr(chat, "title", None) or "Group"
         for uid in joined_ids:
-            await _send_join_alert(
-                assistant_client=assistant_client,
-                main_bot=main_bot,
+            await _send_normal_vc_message(
+                assistant=assistant,
+                bot=bot,
                 chat_id=chat_id,
                 group_title=group_title,
                 user_id=uid,
             )
-    except Exception as e:
-        print(f"[VC DEBUG] Poll error in {chat_id}: {e}")
+    except Exception:
+        pass
 
 
-async def _poll_vc_joins_loop():
-    global _poll_task_started
+async def _vc_watcher_loop():
+    global _loop_started
     try:
         while True:
             await asyncio.sleep(5)
-            main_bot = _main_bot_ref
-            if not main_bot:
+            bot = _app
+            if not bot:
                 continue
 
-            for client in list(_tracked_assistants):
+            for assistant in list(_tracked_assistants):
                 try:
-                    async for dialog in client.get_dialogs():
+                    async for dialog in assistant.get_dialogs():
                         chat = getattr(dialog, "chat", None)
                         if not chat:
                             continue
                         chat_type = str(getattr(chat, "type", "")).lower()
                         if "supergroup" in chat_type or "channel" in chat_type:
-                            await _check_chat_vc_participants(client, main_bot, chat)
+                            await _scan_chat_vc(assistant, bot, chat)
                             await asyncio.sleep(0.15)
-                except Exception as e:
-                    print(f"[VC DEBUG] Dialog loop error: {e}")
+                except Exception:
+                    pass
     finally:
-        _poll_task_started = False
+        _loop_started = False
 
 
 def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
-    global _main_bot_ref, _poll_task_started
-    _main_bot_ref = main_bot
+    global _app, _loop_started
+    _app = main_bot
 
     if assistant_client not in _tracked_assistants:
         _tracked_assistants.append(assistant_client)
 
     try:
         loop = asyncio.get_running_loop()
-        if not _poll_task_started:
-            _poll_task_started = True
-            loop.create_task(_poll_vc_joins_loop())
-            print("[VC DEBUG] Started VC join poller")
-    except RuntimeError as e:
-        print(f"[VC DEBUG] Failed to start poller: {e}")
+        if not _loop_started:
+            _loop_started = True
+            loop.create_task(_vc_watcher_loop())
+    except RuntimeError:
+        pass
