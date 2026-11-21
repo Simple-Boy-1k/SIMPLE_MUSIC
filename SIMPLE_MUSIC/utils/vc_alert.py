@@ -366,4 +366,42 @@ async def _vc_poller_loop():
                         cid = int(chat.id)
                         if cid in seen_chats:
                             continue
-                        chat_type = str
+                        chat_type = str(getattr(chat, "type", "")).lower()
+                        if "supergroup" in chat_type or "channel" in chat_type:
+                            seen_chats.add(cid)
+                            title = getattr(chat, "title", None) or "Group"
+                            await _sync_chat_vc(assistant, bot, cid, title)
+                            await asyncio.sleep(0.08)
+                except Exception:
+                    pass
+    finally:
+        _poller_started = False
+
+
+def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
+    global _app, _poller_started
+    _app = main_bot
+
+    if assistant_client not in _tracked_assistants:
+        _tracked_assistants.append(assistant_client)
+
+    @assistant_client.on_raw_update()
+    async def _on_raw_vc_update(client: Client, update, users: dict, chats: dict):
+        bot = _app
+        if not bot:
+            return
+
+        if chats:
+            for _, chat_obj in chats.items():
+                cid = _normalize_channel_id(getattr(chat_obj, "id", None))
+                title = getattr(chat_obj, "title", None)
+                if cid and title:
+                    _known_chats[cid] = title
+
+        if isinstance(update, types.UpdateGroupCall):
+            cid = _extract_chat_id(update, chats)
+            call_id = _extract_call_id(update)
+            if cid and call_id:
+                _call_to_chat_id[call_id] = cid
+            if cid:
+                await _sync_chat_vc(client, bot, cid
