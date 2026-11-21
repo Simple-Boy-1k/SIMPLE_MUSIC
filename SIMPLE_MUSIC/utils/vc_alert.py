@@ -32,18 +32,27 @@ def _format_vc_event_text(
 
     if event_type == "join":
         header = "🎙 <b>ᴜꜱᴇʀ ᴊᴏɪɴᴇᴅ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ</b>"
-        quote = "<blockquote><b>ᴛᴀʙ ʙᴇʟᴏᴡ ᴛᴏ ᴊᴏɪɴ</b></blockquote>"
+        quote = "<b>ᴛᴀʙ ʙᴇʟᴏᴡ ᴛᴏ ᴊᴏɪɴ</b>"
     else:
         header = "🚪 <b>ᴜꜱᴇʀ ʟᴇꜰᴛ ᴠᴄ ᴄʜᴀᴛ</b>"
-        quote = "<blockquote><b>ʟᴇꜰᴛ ᴛʜᴇ ᴠᴄ  🌙</b></blockquote>"
+        quote = "<b>ʟᴇꜰᴛ ᴛʜᴇ ᴠᴄ  🌙</b>"
 
     return (
+        "<blockquote>"
         f"{header}\n"
         f"👤 <b>ᴜꜱᴇʀ:</b> {user_mention}\n"
         f"⚡ <b>ᴜꜱᴇʀɴᴀᴍᴇ:</b> {username_line}\n"
         f"👥 <b>ɢʀᴏᴜᴩ:</b> {safe_group}\n"
         f"{quote}"
+        "</blockquote>"
     )
+
+
+def _make_danger_button(text: str, url: str) -> InlineKeyboardButton:
+    try:
+        return InlineKeyboardButton(text=text, url=url, style="danger")
+    except TypeError:
+        return InlineKeyboardButton(text=text, url=url)
 
 
 def _format_vc_buttons(
@@ -61,8 +70,8 @@ def _format_vc_buttons(
     return InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton("🎧 Join VC", url=vc_link),
-                InlineKeyboardButton("➕ Add Me", url=add_bot_url),
+                _make_danger_button("🎧 Join VC", vc_link),
+                _make_danger_button("➕ Add Me", add_bot_url),
             ]
         ]
     )
@@ -357,98 +366,4 @@ async def _vc_poller_loop():
                         cid = int(chat.id)
                         if cid in seen_chats:
                             continue
-                        chat_type = str(getattr(chat, "type", "")).lower()
-                        if "supergroup" in chat_type or "channel" in chat_type:
-                            seen_chats.add(cid)
-                            title = getattr(chat, "title", None) or "Group"
-                            await _sync_chat_vc(assistant, bot, cid, title)
-                            await asyncio.sleep(0.08)
-                except Exception:
-                    pass
-    finally:
-        _poller_started = False
-
-
-def attach_vc_join_notifier(assistant_client: Client, main_bot: Client):
-    global _app, _poller_started
-    _app = main_bot
-
-    if assistant_client not in _tracked_assistants:
-        _tracked_assistants.append(assistant_client)
-
-    @assistant_client.on_raw_update()
-    async def _on_raw_vc_update(client: Client, update, users: dict, chats: dict):
-        bot = _app
-        if not bot:
-            return
-
-        if chats:
-            for _, chat_obj in chats.items():
-                cid = _normalize_channel_id(getattr(chat_obj, "id", None))
-                title = getattr(chat_obj, "title", None)
-                if cid and title:
-                    _known_chats[cid] = title
-
-        if isinstance(update, types.UpdateGroupCall):
-            cid = _extract_chat_id(update, chats)
-            call_id = _extract_call_id(update)
-            if cid and call_id:
-                _call_to_chat_id[call_id] = cid
-            if cid:
-                await _sync_chat_vc(client, bot, cid)
-            return
-
-        if not isinstance(update, types.UpdateGroupCallParticipants):
-            return
-
-        cid = _extract_chat_id(update, chats)
-        call_id = _extract_call_id(update)
-        if not cid and call_id:
-            cid = _call_to_chat_id.get(call_id)
-        if not cid:
-            return
-
-        if call_id:
-            _call_to_chat_id[call_id] = cid
-
-        active_set = _known_participants.setdefault(cid, set())
-        title = _known_chats.get(cid) or "Group"
-
-        for participant in getattr(update, "participants", []) or []:
-            peer = getattr(participant, "peer", None)
-            uid = getattr(peer, "user_id", None)
-            if not uid:
-                continue
-            uid = int(uid)
-            left = bool(getattr(participant, "left", False))
-
-            if left:
-                active_set.discard(uid)
-                await _dispatch_alert(
-                    assistant=client,
-                    bot=bot,
-                    chat_id=cid,
-                    group_title=title,
-                    user_id=uid,
-                    event_type="left",
-                    users_cache=users,
-                )
-            else:
-                active_set.add(uid)
-                await _dispatch_alert(
-                    assistant=client,
-                    bot=bot,
-                    chat_id=cid,
-                    group_title=title,
-                    user_id=uid,
-                    event_type="join",
-                    users_cache=users,
-                )
-
-    try:
-        loop = asyncio.get_running_loop()
-        if not _poller_started:
-            _poller_started = True
-            loop.create_task(_vc_poller_loop())
-    except RuntimeError:
-        pass
+                        chat_type = str
